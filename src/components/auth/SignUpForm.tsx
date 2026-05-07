@@ -1,8 +1,13 @@
 import { useState } from "react";
-import { Link } from "react-router";
-import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
+import { Link, useLocation, useNavigate } from "react-router";
+
+import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
+import { authService } from "../../services/authService";
+
+import Navbar from "../../components/landing/Navbar";
+import Footer from "../../components/landing/Footer";
 
 type FormErrors = {
   firstName?: string;
@@ -13,73 +18,81 @@ type FormErrors = {
   password?: string;
 };
 
+type SignupPayload = {
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  phone: string;
+  email: string;
+  password: string;
+};
+
 export default function SignUpForm() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const redirectTo =
+    new URLSearchParams(location.search).get("redirect") || "/cart";
+
+  const signinRedirectPath = `/signin?redirect=${encodeURIComponent(
+    redirectTo,
+  )}`;
+
+  const [active, setActive] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const clearError = (field: keyof FormErrors) => {
-    setErrors((prev) => ({
-      ...prev,
-      [field]: "",
-    }));
+    setErrors((prev) => ({ ...prev, [field]: "" }));
+    setApiError("");
+    setSuccessMessage("");
   };
 
-  const validateForm = (data: any) => {
+  const validateForm = (data: SignupPayload) => {
     const newErrors: FormErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!data.firstName.trim()) {
       newErrors.firstName = "First name is required";
-    } else if (data.firstName.trim().length < 2) {
-      newErrors.firstName = "First name must be at least 2 characters";
     }
 
     if (!data.lastName.trim()) {
       newErrors.lastName = "Last name is required";
-    } else if (data.lastName.trim().length < 2) {
-      newErrors.lastName = "Last name must be at least 2 characters";
     }
 
     if (!data.companyName.trim()) {
       newErrors.companyName = "Company name is required";
-    } else if (data.companyName.trim().length < 3) {
-      newErrors.companyName = "Company name must be at least 3 characters";
     }
 
     if (!data.phone.trim()) {
       newErrors.phone = "Phone number is required";
-    } else if (!/^[0-9]{10}$/.test(data.phone.trim())) {
-      newErrors.phone = "Phone number must be 10 digits";
     }
 
     if (!data.email.trim()) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
-      newErrors.email = "Enter a valid email address";
+    } else if (!emailRegex.test(data.email.trim())) {
+      newErrors.email = "Please enter a valid email address";
     }
 
     if (!data.password.trim()) {
       newErrors.password = "Password is required";
-    } else if (data.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
-    } else if (!/[A-Za-z]/.test(data.password)) {
-      newErrors.password = "Password must include alphabets";
-    } else if (!/[0-9]/.test(data.password)) {
-      newErrors.password = "Password must include at least 1 number";
-    } else if (!/[A-Z]/.test(data.password)) {
-      newErrors.password = "Password must include at least 1 uppercase letter";
-    } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(data.password)) {
-      newErrors.password = "Use a stronger password with 1 special character";
+    } else if (data.password.trim().length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
     }
 
     return newErrors;
   };
 
-  const handleSubmit = (e: any) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const formData = new FormData(e.currentTarget);
 
-    const payload = {
+    const payload: SignupPayload = {
       firstName: String(formData.get("firstName") || ""),
       lastName: String(formData.get("lastName") || ""),
       companyName: String(formData.get("companyName") || ""),
@@ -95,35 +108,72 @@ export default function SignUpForm() {
       return;
     }
 
-    setErrors({});
-    console.log("Signup Success:", payload);
+    try {
+      setLoading(true);
+      setErrors({});
+      setApiError("");
+      setSuccessMessage("");
+
+      const response = await authService.register({
+        name: payload.companyName,
+        fname: payload.firstName,
+        lname: payload.lastName,
+        email: payload.email,
+        password: payload.password,
+        mobile: payload.phone,
+      });
+
+      console.log("Signup API Success:", response);
+
+      setSuccessMessage("Account created successfully. Redirecting...");
+
+      setTimeout(() => {
+        navigate(redirectTo, { replace: true });
+      }, 800);
+    } catch (error: any) {
+      console.error("Signup API Error:", error);
+
+      setApiError(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Signup failed. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-slate-50 to-blue-50 px-4 py-10">
-      <div className="w-full max-w-5xl">
-        <Link
-          to="/signin"
-          className="mb-6 inline-flex items-center text-sm text-slate-500 hover:text-blue-600"
-        >
-          <ChevronLeftIcon className="size-5" />
-          Back to sign in
-        </Link>
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
+      <Navbar active={active} setActive={setActive} />
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-          <div className="grid lg:grid-cols-2">
-            <div className="hidden flex-col justify-center border-r border-slate-200 bg-slate-50 p-10 lg:flex">
-              <h2 className="text-2xl font-black text-slate-900">
-                <span className="text-blue-600">HME</span>
-                <span className="text-slate-900">intelligence</span>
+      <main
+        className="relative flex min-h-[720px] items-center justify-center overflow-hidden bg-cover bg-center bg-no-repeat px-4 pb-10"
+        style={{
+          backgroundImage: "url('/signin-bg.jpg')",
+        }}
+      >
+        <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] dark:bg-slate-950/65" />
+
+        <div className="absolute left-10 top-32 h-40 w-40 rounded-full bg-blue-600/20 blur-3xl" />
+
+        <div className="relative z-10 w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-2xl shadow-slate-950/20 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/90 dark:shadow-black/30">
+          <div className="grid lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="hidden flex-col justify-center border-r border-slate-200 bg-slate-50/90 p-6 dark:border-slate-800 dark:bg-slate-800/60 lg:flex">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-lg font-black text-white shadow-lg shadow-blue-600/30">
+                H
+              </div>
+
+              <h2 className="mt-5 text-2xl font-black text-slate-950 dark:text-white">
+                Start your HME account
               </h2>
 
-              <p className="mt-4 text-slate-600">
-                Create your mining company account and start managing your fleet,
-                maintenance, and alerts in one place.
+              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Create your mining company account and manage fleet,
+                maintenance, alerts, and reports in one place.
               </p>
 
-              <div className="mt-8 space-y-3 text-sm text-slate-600">
+              <div className="mt-6 space-y-2 text-sm text-slate-600 dark:text-slate-300">
                 <p>✔ Fleet & Machine Tracking</p>
                 <p>✔ Maintenance Planning</p>
                 <p>✔ Alert Monitoring</p>
@@ -131,27 +181,35 @@ export default function SignUpForm() {
               </div>
             </div>
 
-            <div className="p-8 sm:p-10">
-              <div className="mb-8">
-                <h1 className="text-3xl font-black text-slate-900">
+            <div className="p-5 sm:p-6">
+              <div className="mb-4 text-center lg:text-left">
+                <h1 className="text-2xl font-black tracking-tight text-slate-950 dark:text-white">
                   Create Account
                 </h1>
-                <p className="mt-2 text-slate-500">
+
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   Enter your company details
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <form onSubmit={handleSubmit} noValidate>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <Label>First Name *</Label>
+
                     <Input
                       name="firstName"
                       placeholder="John"
+                      className={`mt-1 ${
+                        errors.firstName
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                       onChange={() => clearError("firstName")}
                     />
+
                     {errors.firstName && (
-                      <p className="mt-1 text-xs font-medium text-red-500">
+                      <p className="mt-1 text-xs text-red-500">
                         {errors.firstName}
                       </p>
                     )}
@@ -159,13 +217,20 @@ export default function SignUpForm() {
 
                   <div>
                     <Label>Last Name *</Label>
+
                     <Input
                       name="lastName"
                       placeholder="Doe"
+                      className={`mt-1 ${
+                        errors.lastName
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                       onChange={() => clearError("lastName")}
                     />
+
                     {errors.lastName && (
-                      <p className="mt-1 text-xs font-medium text-red-500">
+                      <p className="mt-1 text-xs text-red-500">
                         {errors.lastName}
                       </p>
                     )}
@@ -173,13 +238,20 @@ export default function SignUpForm() {
 
                   <div className="sm:col-span-2">
                     <Label>Company Name *</Label>
+
                     <Input
                       name="companyName"
                       placeholder="ABC Mining Pvt Ltd"
+                      className={`mt-1 ${
+                        errors.companyName
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                       onChange={() => clearError("companyName")}
                     />
+
                     {errors.companyName && (
-                      <p className="mt-1 text-xs font-medium text-red-500">
+                      <p className="mt-1 text-xs text-red-500">
                         {errors.companyName}
                       </p>
                     )}
@@ -187,27 +259,42 @@ export default function SignUpForm() {
 
                   <div>
                     <Label>Phone *</Label>
+
                     <Input
                       name="phone"
                       placeholder="9876543210"
+                      className={`mt-1 ${
+                        errors.phone
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                       onChange={() => clearError("phone")}
                     />
+
                     {errors.phone && (
-                      <p className="mt-1 text-xs font-medium text-red-500">
+                      <p className="mt-1 text-xs text-red-500">
                         {errors.phone}
                       </p>
                     )}
                   </div>
 
                   <div>
-                    <Label>Email *</Label>
+                    <Label>Company Email *</Label>
+
                     <Input
                       name="email"
+                      type="email"
                       placeholder="company@email.com"
+                      className={`mt-1 ${
+                        errors.email
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                          : ""
+                      }`}
                       onChange={() => clearError("email")}
                     />
+
                     {errors.email && (
-                      <p className="mt-1 text-xs font-medium text-red-500">
+                      <p className="mt-1 text-xs text-red-500">
                         {errors.email}
                       </p>
                     )}
@@ -216,61 +303,79 @@ export default function SignUpForm() {
                   <div className="sm:col-span-2">
                     <Label>Password *</Label>
 
-                    <div className="relative">
+                    <div className="relative mt-1">
                       <Input
                         name="password"
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter strong password"
-                        className="pr-12"
+                        className={`pr-12 ${
+                          errors.password
+                            ? "border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                            : ""
+                        }`}
                         onChange={() => clearError("password")}
                       />
 
                       <button
                         type="button"
                         onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute right-4 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center text-gray-500 transition hover:text-blue-600"
+                        className="absolute right-4 top-1/2 z-20 flex h-6 w-6 -translate-y-1/2 items-center justify-center text-slate-500 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
                       >
                         {showPassword ? (
-                          <EyeIcon className="size-5 fill-gray-500 hover:fill-blue-600" />
+                          <EyeIcon className="h-5 w-5 fill-current" />
                         ) : (
-                          <EyeCloseIcon className="size-5 fill-gray-500 hover:fill-blue-600" />
+                          <EyeCloseIcon className="h-5 w-5 fill-current" />
                         )}
                       </button>
                     </div>
 
                     {errors.password && (
-                      <p className="mt-1 text-xs font-medium text-red-500">
+                      <p className="mt-1 text-xs text-red-500">
                         {errors.password}
                       </p>
                     )}
-
-                    <p className="mt-2 text-xs text-slate-500">
-                      Password must include 8 characters, uppercase letter,
-                      alphabet, number and special character.
-                    </p>
                   </div>
                 </div>
 
+                {apiError && (
+                  <p className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                    {apiError}
+                  </p>
+                )}
+
+                {successMessage && (
+                  <p className="mt-3 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-600 dark:bg-green-500/10 dark:text-green-400">
+                    {successMessage}
+                  </p>
+                )}
+
                 <button
                   type="submit"
-                  className="mt-8 w-full rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-blue-700"
+                  disabled={loading}
+                  className="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Create Account
+                  {loading ? "Creating Account..." : "Create Account"}
                 </button>
               </form>
 
-              <div className="mt-6 text-center text-sm text-slate-500">
-                Already have an account?{" "}
-                <Link
-                  to="/signin"
-                  className="font-semibold text-blue-600 hover:underline"
-                >
-                  Sign In
-                </Link>
+              <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-center dark:bg-slate-800/60">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Already have an account?{" "}
+                  <Link
+                    to={signinRedirectPath}
+                    className="font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Sign In
+                  </Link>
+                </p>
               </div>
             </div>
           </div>
         </div>
+      </main>
+
+      <div className="[&_.reveal]:!translate-y-0 [&_.reveal]:!opacity-100">
+        <Footer />
       </div>
     </div>
   );

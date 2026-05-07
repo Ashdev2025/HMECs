@@ -1,7 +1,9 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
+
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
+
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
 import Images from "./pages/UiElements/Images";
@@ -14,27 +16,66 @@ import BarChart from "./pages/Charts/BarChart";
 import BasicTables from "./pages/Tables/BasicTables";
 import FormElements from "./pages/Forms/FormElements";
 import Blank from "./pages/Blank";
+
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
-import Home from "./pages/Dashboard/Home";
+
+import Home from "./pages/SuperAdmin/SuperAdminDashboard";
 import LandingPage from "./pages/Landing/LandingPage";
 import PricingPage from "./pages/pricing/PricingPage";
+import CartPage from "./pages/Cart/CartPage";
+
+import PlanManagement from "./pages/SuperAdmin/PlanManagement/PlanManagement";
+import UsersPage from "./pages/SuperAdmin/user-management/UsersPage";
+import RolesPage from "./pages/SuperAdmin/user-management/RolesPage";
+import RoleDetailsPage from "./components/super-admin/dashboard/RoleDetails";
+
+import CompanyAdminDashboard from "./pages/CompanyAdmin/CompanyAdminDashboard";
+
+import AccessDenied from "./pages/AccessDenied";
+import RoleProtectedRoute from "./routes/RoleProtectedRoute";
+import StaffManagement from "./pages/CompanyAdmin/StaffManagement";
 
 export default function App() {
   return (
-    <>
-      <Router>
-        <ScrollToTop />
-        <Routes>
-          {/* Public Auth Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/signin" element={<SignIn />} />
+    <Router>
+      <ScrollToTop />
 
-          {/* Dashboard Routes */}
-          <Route element={<AppLayout />}>
-            <Route path=" " element={<Home />} />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/access-denied" element={<AccessDenied />} />
+        <Route
+          element={
+            <RoleProtectedRoute
+              allowedRoles={[
+                "super_admin",
+                "system_admin",
+                "superadmin",
+                "Super Admin",
+                "System Admin",
+              ]}
+            />
+          }
+        >
+          <Route element={<AppLayout role="super_admin" />}>
+            <Route
+              path="/super-admin"
+              element={<Navigate to="/super-admin/dashboard" replace />}
+            />
+
+            <Route path="/super-admin/dashboard" element={<Home />} />
+            <Route path="/admin-management/users" element={<UsersPage />} />
+            <Route path="/admin-management/roles" element={<RolesPage />} />
+            <Route
+              path="/admin-management/roles/:roleId"
+              element={<RoleDetailsPage />}
+            />
+            <Route path="/admin-management/plans" element={<PlanManagement />} />
+
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/blank" element={<Blank />} />
             <Route path="/form-elements" element={<FormElements />} />
@@ -47,11 +88,26 @@ export default function App() {
             <Route path="/videos" element={<Videos />} />
             <Route path="/line-chart" element={<LineChart />} />
             <Route path="/bar-chart" element={<BarChart />} />
+  
           </Route>
+        </Route>
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
-    </>
+       
+        <Route
+          element={
+            <RoleProtectedRoute
+              allowedRoles={["company_admin", "admin", "Company Admin", "Admin"]}
+            />
+          }
+        >
+          <Route element={<AppLayout role="company_admin" />}>
+            <Route path="/company-admin/dashboard" element={<CompanyAdminDashboard />}/>
+            <Route path="/company-admin/staff" element={<StaffManagement />} />
+          </Route>
+        </Route>
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Router>
   );
 }

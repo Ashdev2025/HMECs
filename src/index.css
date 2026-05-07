@@ -825,3 +825,23 @@ html {
   opacity: 1;
   transform: translate(0, 0) scale(1);
 }
+/* ===== LANDING PAGE EXTRA POLISH ===== */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.reveal,
+.reveal-left,
+.reveal-right,
+.reveal-scale {
+  will-change: transform, opacity;
+}
+
+::selection {
+  background: #2563eb;
+  color: white;
+}

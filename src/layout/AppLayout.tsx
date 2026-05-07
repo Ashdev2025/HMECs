@@ -3,34 +3,39 @@ import { Outlet } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import type { UserRole } from "../config/sidebar.config";
 
-const LayoutContent: React.FC = () => {
+type AppLayoutProps = {
+  role?: UserRole;
+};
+
+const LayoutContent: React.FC<AppLayoutProps> = ({ role = "super_admin" }) => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   return (
-    <div className="min-h-screen xl:flex">
-      <div>
-        <AppSidebar />
-        <Backdrop />
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950">
+      <AppSidebar role={role} />
+      <Backdrop />
+
       <div
-        className={`flex-1 transition-all duration-300 ease-in-out ${
+        className={`transition-all duration-300 ease-in-out ${
           isExpanded || isHovered ? "lg:ml-[290px]" : "lg:ml-[90px]"
         } ${isMobileOpen ? "ml-0" : ""}`}
       >
         <AppHeader />
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+
+        <main className="w-full p-4 md:p-6">
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   );
 };
 
-const AppLayout: React.FC = () => {
+const AppLayout: React.FC<AppLayoutProps> = ({ role = "super_admin" }) => {
   return (
     <SidebarProvider>
-      <LayoutContent />
+      <LayoutContent role={role} />
     </SidebarProvider>
   );
 };

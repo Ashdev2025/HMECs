@@ -1,46 +1,121 @@
+import { Link } from "react-router";
+import logo1 from "../../assets/images/landingpageimages/logo1.png";
+
 export default function Footer() {
   return (
-    <footer id="contact" className="reveal scroll-mt-24 bg-slate-800 px-5 py-12 text-slate-300 lg:px-8 border-t border-slate-700">
-      <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-4">
-        <div>
-          <h3 className="text-2xl font-black">
-            <span className="text-blue-400">HME</span>
-            <span className="text-white">intelligence</span>
-          </h3>
+    <footer
+      id="contact"
+      className="border-t border-slate-200 bg-white px-5 py-9 text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 lg:px-8"
+    >
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-8 md:grid-cols-4">
+          <div>
+            <img
+              src={logo1}
+              alt="HME Logo"
+              className="h-16 w-auto object-contain"
+            />
 
-          <p className="mt-4 text-sm leading-7 text-slate-400">
-            AI powered maintenance and fleet monitoring platform for mining companies.
-          </p>
+            <p className="mt-4 max-w-sm text-sm font-medium leading-7">
+              The all-in-one maintenance and reporting platform built for heavy
+              mining operations.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-slate-950 dark:text-white">
+              Product
+            </h3>
+
+            <ul className="mt-4 space-y-3 text-sm font-medium">
+              <li>
+                <a href="#features" className="transition hover:text-blue-600">
+                  Features
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#maintenance"
+                  className="transition hover:text-blue-600"
+                >
+                  Maintenance
+                </a>
+              </li>
+              <li>
+                <a href="#reports" className="transition hover:text-blue-600">
+                  Reports
+                </a>
+              </li>
+              <li>
+                <Link to="/pricing" className="transition hover:text-blue-600">
+                  Pricing
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-slate-950 dark:text-white">
+              Company
+            </h3>
+
+            <ul className="mt-4 space-y-3 text-sm font-medium">
+              <li>
+                <a href="#about" className="transition hover:text-blue-600">
+                  About Us
+                </a>
+              </li>
+              <li>
+                <a href="#careers" className="transition hover:text-blue-600">
+                  Careers
+                </a>
+              </li>
+              <li>
+                <a href="#blog" className="transition hover:text-blue-600">
+                  Blog
+                </a>
+              </li>
+              <li>
+                <a href="#contact" className="transition hover:text-blue-600">
+                  Contact Us
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-slate-950 dark:text-white">
+              Support
+            </h3>
+
+            <ul className="mt-4 space-y-3 text-sm font-medium">
+              <li>
+                <a href="#help" className="transition hover:text-blue-600">
+                  Help Center
+                </a>
+              </li>
+              <li>
+                <a href="#docs" className="transition hover:text-blue-600">
+                  Documentation
+                </a>
+              </li>
+              <li>
+                <a href="#terms" className="transition hover:text-blue-600">
+                  Terms of Service
+                </a>
+              </li>
+              <li>
+                <a href="#privacy" className="transition hover:text-blue-600">
+                  Privacy Policy
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <div>
-          <h4 className="font-bold text-white">Product</h4>
-          <p className="mt-4 cursor-pointer text-sm text-slate-400 hover:text-blue-400">
-            Features
-          </p>
-          <p className="mt-2 cursor-pointer text-sm text-slate-400 hover:text-blue-400">
-            Pricing
-          </p>
-          <p className="mt-2 cursor-pointer text-sm text-slate-400 hover:text-blue-400">
-            Reports
-          </p>
+        <div className="mt-8 border-t border-slate-200 pt-5 text-center text-xs font-semibold text-slate-500 dark:border-slate-800 dark:text-slate-500">
+          © 2026 MineTrack. All rights reserved.
         </div>
-        <div>
-          <h4 className="font-bold text-white">Modules</h4>
-          <p className="mt-4 text-sm text-slate-400">Fleet</p>
-          <p className="mt-2 text-sm text-slate-400">Maintenance</p>
-          <p className="mt-2 text-sm text-slate-400">Alerts</p>
-        </div>
-
-        <div>
-          <h4 className="font-bold text-white">Contact</h4>
-          <p className="mt-4 text-sm text-slate-400">support@miningai.com</p>
-          <p className="mt-2 text-sm text-slate-400">India</p>
-        </div>
-      </div>
-
-      <div className="mx-auto mt-10 max-w-7xl border-t border-slate-700 pt-6 text-center text-sm text-slate-500">
-        © 2026 HMEintelligence. All rights reserved.
       </div>
     </footer>
   );

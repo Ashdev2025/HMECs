@@ -1,328 +1,395 @@
-import { Link, useNavigate } from "react-router";
-import { createPayment } from "../../services/payment.service";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
+import toast from "react-hot-toast";
+import { pricingComparison } from "../../data/pricingComparison";
+import Header from "../../components/landing/Navbar";
+import Footer from "../../components/landing/Footer";
+import {
+  getSubscriptionPlans,
+  type SubscriptionPlanApi,
+} from "../../services/subscriptionService";
 
-const plans = [
-  {
-    name: "Basic",
-    price: "₹4,999",
-    subtitle: "For small mining teams",
-    limit: "Up to 10 machines",
-    icon: "⛏️",
-    features: [
-      "Company admin account",
-      "Up to 10 machine records",
-      "Basic maintenance task tracking",
-      "Alert overview dashboard",
-      "Email support",
-    ],
-    popular: false,
-  },
-  {
-    name: "Pro",
-    price: "₹14,999",
-    subtitle: "For growing mining operations",
-    limit: "Up to 50 machines",
-    icon: "🚜",
-    features: [
-      "Everything in Basic",
-      "Engineer and planner roles",
-      "Advanced maintenance planning",
-      "Tyre, engine and hydraulic modules",
-      "Priority support",
-    ],
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    subtitle: "For large mining companies",
-    limit: "Unlimited machines",
-    icon: "🏭",
-    features: [
-      "Everything in Pro",
-      "Multi-site company structure",
-      "OEM / supplier limited access",
-      "Group-level reporting",
-      "Dedicated support",
-    ],
-    popular: false,
-  },
-];
+type PricingPlan = {
+  id: string | number;
+  name: string;
+  subtitle: string;
+  price: string;
+  period: string;
+  limit: string;
+  features: string[];
+  popular: boolean;
+  icon: string;
+  rawPlan: SubscriptionPlanApi;
+};
 
-export default function PricingPage() {
+const featuresToArray = (
+  features: Record<string, boolean> | string[] | null
+): string[] => {
+  if (Array.isArray(features)) return features.filter(Boolean);
+
+  if (features && typeof features === "object") {
+    return Object.keys(features).filter((key) => features[key]);
+  }
+
+  return [];
+};
+
+const formatPrice = (price: string | number) => {
+  const value = String(price ?? "0");
+  return value.startsWith("$") ? value : `$${value}`;
+};
+
+const mapApiPlanToPricingPlan = (
+  plan: SubscriptionPlanApi,
+  index: number
+): PricingPlan => {
+  const features = featuresToArray(plan.features);
+
+  return {
+    id: plan.id,
+    name: plan.name || "Untitled Plan",
+    subtitle: `${plan.machine_limit ?? 0} machine limit plan for mining operations.`,
+    price: formatPrice(plan.price),
+    period: "",
+    limit: `${plan.machine_limit ?? 0} Machines Included`,
+    features,
+    popular:
+      String(plan.name).toLowerCase().includes("pro") ||
+      String(plan.name).toLowerCase().includes("plus") ||
+      index === 1,
+    icon: index === 0 ? "⚙️" : index === 1 ? "🚜" : "🏗️",
+    rawPlan: plan,
+  };
+};
+
+function PricingHero() {
+  return (
+    <div className="mx-auto mb-14 max-w-3xl text-center">
+      <p className="mb-4 text-sm font-black uppercase tracking-[0.25em] text-blue-600">
+        Subscription Plans
+      </p>
+
+      <h1 className="text-4xl font-black leading-tight text-slate-950 sm:text-6xl dark:text-white">
+        Choose the Right Plan for Your{" "}
+        <span className="text-blue-600">Mining Operations</span>
+      </h1>
+
+      <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-600 dark:text-slate-300">
+        Flexible USD pricing for heavy machine maintenance, fleet tracking,
+        alerts, reports and operational intelligence.
+      </p>
+    </div>
+  );
+}
+
+function PricingCard({ plan }: { plan: PricingPlan }) {
   const navigate = useNavigate();
+  const token = localStorage.getItem("token");
 
-  const handlePlanSelect = async (planName: string) => {
-    const response = await createPayment(planName);
-
-    if (response.success) {
-      navigate(`/signup?plan=${planName}`);
+  const handleSelectPlan = () => {
+    if (token) {
+      toast("You already purchased a plan.", {
+        icon: "ℹ️",
+      });
+      return;
     }
+
+    localStorage.setItem(
+      "selectedPlan",
+      JSON.stringify({
+        id: plan.id,
+        name: plan.name,
+        subtitle: plan.subtitle,
+        price: plan.price,
+        period: plan.period,
+        limit: plan.limit,
+        machine_limit: plan.rawPlan.machine_limit,
+        features: plan.features,
+        icon: plan.icon,
+      })
+    );
+
+    navigate("/cart");
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
-      {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
-          <Link to="/" className="text-3xl font-black tracking-tight">
-            <span className="text-blue-600">HME</span>
-            <span className="text-slate-900">intelligence</span>
-          </Link>
-
-          <nav className="hidden items-center gap-8 text-sm font-medium md:flex">
-            <Link
-              to="/"
-              className="border-b-2 border-transparent pb-1 text-slate-600 transition hover:border-blue-600 hover:text-blue-600"
-            >
-              Home
-            </Link>
-
-            <a
-              href="#plans"
-              className="border-b-2 border-blue-600 pb-1 text-blue-600 transition"
-            >
-              Plans
-            </a>
-
-            <a
-              href="#comparison"
-              className="border-b-2 border-transparent pb-1 text-slate-600 transition hover:border-blue-600 hover:text-blue-600"
-            >
-              Compare
-            </a>
-
-            <Link
-              to="/signin"
-              className="border-b-2 border-transparent pb-1 text-slate-600 transition hover:border-blue-600 hover:text-blue-600"
-            >
-              Login
-            </Link>
-          </nav>
-
-          <Link
-            to="/signin"
-            className="rounded-full bg-blue-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-700"
-          >
-            Login
-          </Link>
+    <div
+      className={`relative flex h-full flex-col overflow-hidden rounded-[2rem] border p-7 shadow-xl transition duration-300 hover:-translate-y-2 ${plan.popular
+        ? "border-blue-500 bg-blue-600 text-white shadow-blue-600/30"
+        : "border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
+        }`}
+    >
+      {plan.popular && (
+        <div className="absolute right-6 top-6 rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-wide text-blue-600">
+          Most Popular
         </div>
-      </header>
+      )}
 
-      {/* Pricing Section */}
-      <main
-        id="plans"
-        className="relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-blue-50 px-5 py-16 lg:px-8"
+      <div
+        className={`mb-7 flex h-16 w-16 items-center justify-center rounded-3xl text-3xl ${plan.popular ? "bg-white/20" : "bg-blue-50 dark:bg-blue-600/20"
+          }`}
       >
-        <div className="absolute left-1/2 top-52 -z-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-blue-100 blur-3xl" />
+        {plan.icon}
+      </div>
 
-        <div className="mx-auto max-w-7xl">
-          <div className="mx-auto mb-12 max-w-3xl text-center">
-            <p className="mb-3 text-sm font-bold uppercase tracking-widest text-blue-600">
-              Choose Plan
-            </p>
+      <h2 className="text-xl font-black uppercase tracking-wide">
+        {plan.name} PLAN
+      </h2>
 
-            <h1 className="text-4xl font-black text-slate-950 sm:text-5xl">
-              Choose Your Perfect Plan
-            </h1>
+      <p
+        className={`mt-3 text-sm leading-6 ${plan.popular ? "text-blue-50" : "text-slate-500 dark:text-slate-300"
+          }`}
+      >
+        {plan.subtitle}
+      </p>
 
-            <p className="mt-5 text-base leading-8 text-slate-500">
-              Select the HME intelligence plan that matches your company needs.
-              Start with a simple setup and scale as your fleet grows.
-            </p>
-          </div>
+      <div className="mt-7 flex items-end gap-1">
+        <span
+          className={`text-5xl font-black ${plan.popular ? "text-white" : "text-blue-600"
+            }`}
+        >
+          {plan.price}
+        </span>
 
-          <div className="grid items-stretch gap-7 lg:grid-cols-3">
-            {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`relative flex h-full flex-col rounded-3xl border bg-white p-7 shadow-xl transition hover:-translate-y-1 hover:shadow-2xl ${
-                  plan.popular
-                    ? "border-blue-500 shadow-blue-100"
-                    : "border-slate-200"
-                }`}
+        {plan.period && (
+          <span
+            className={`pb-2 text-sm font-semibold ${plan.popular
+              ? "text-blue-50"
+              : "text-slate-500 dark:text-slate-300"
+              }`}
+          >
+            {plan.period}
+          </span>
+        )}
+      </div>
+
+      <p
+        className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${plan.popular
+          ? "bg-white/15 text-white"
+          : "bg-blue-50 text-blue-700 dark:bg-blue-600/15 dark:text-blue-300"
+          }`}
+      >
+        {plan.limit}
+      </p>
+
+      <ul className="mt-8 space-y-4">
+        {plan.features.length > 0 ? (
+          plan.features.map((feature) => (
+            <li
+              key={feature}
+              className="flex items-start gap-3 text-sm leading-6"
+            >
+              <span
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black ${plan.popular
+                  ? "bg-white text-blue-600"
+                  : "bg-blue-100 text-blue-600 dark:bg-blue-600/20 dark:text-blue-300"
+                  }`}
               >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-lg">
-                    Most Popular
-                  </div>
-                )}
+                ✓
+              </span>
 
-                <div className="text-center">
-                  <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-50 text-4xl">
-                    {plan.icon}
-                  </div>
+              <span
+                className={
+                  plan.popular
+                    ? "text-white"
+                    : "text-slate-700 dark:text-slate-200"
+                }
+              >
+                {feature}
+              </span>
+            </li>
+          ))
+        ) : (
+          <li
+            className={`text-sm ${plan.popular ? "text-blue-50" : "text-slate-500 dark:text-slate-300"
+              }`}
+          >
+            No features added
+          </li>
+        )}
+      </ul>
 
-                  <h2 className="text-2xl font-black text-slate-950">
-                    {plan.name}
-                  </h2>
+      <button
+        onClick={handleSelectPlan}
+        className={`mt-10 w-full rounded-2xl px-6 py-4 text-sm font-black transition hover:-translate-y-0.5 ${plan.popular
+          ? "bg-white text-blue-600 shadow-lg hover:bg-blue-50"
+          : "bg-blue-600 text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700"
+          }`}
+      >
+        Proceed to Cart →
+      </button>
+    </div>
+  );
+}
 
-                  <p className="mt-2 text-sm text-slate-500">
-                    {plan.subtitle}
-                  </p>
+function PricingPlans() {
+  const [plans, setPlans] = useState<PricingPlan[]>([]);
+  const [loading, setLoading] = useState(true);
 
-                  <div className="mt-6 text-4xl font-black text-blue-600">
-                    {plan.price}
-                  </div>
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        setLoading(true);
 
-                  <p className="mt-3 text-sm text-slate-500">{plan.limit}</p>
-                </div>
+        const response = await getSubscriptionPlans();
+        const apiPlans = Array.isArray(response) ? response : [];
 
-                <ul className="mt-8 space-y-4">
-                  {plan.features.map((feature) => (
-                    <li
-                      key={feature}
-                      className="flex items-start gap-3 text-sm text-slate-700"
-                    >
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">
-                        ✓
-                      </span>
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+        setPlans(apiPlans.map(mapApiPlanToPricingPlan));
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to load pricing plans"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
-                <button
-                  onClick={() => handlePlanSelect(plan.name)}
-                  className="mt-auto w-full rounded-full bg-blue-600 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:-translate-y-0.5 hover:bg-blue-700"
-                >
-                  Select {plan.name} Plan
-                </button>
-              </div>
+    fetchPlans();
+  }, []);
+
+  return (
+    <main
+      id="plans"
+      className="relative z-10 bg-gradient-to-br from-white via-blue-50 to-white px-5 py-20 lg:px-8 dark:from-[#050b18] dark:via-[#071b38] dark:to-[#050b18]"
+    >
+      <div className="absolute left-1/2 top-24 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-blue-400/20 blur-3xl" />
+      <div className="absolute right-0 top-10 h-80 w-80 rounded-full bg-blue-600/10 blur-3xl" />
+
+      <div className="relative mx-auto max-w-7xl">
+        <PricingHero />
+
+        {loading ? (
+          <p className="py-10 text-center text-sm font-semibold text-slate-500 dark:text-slate-300">
+            Loading pricing plans...
+          </p>
+        ) : plans.length === 0 ? (
+          <p className="py-10 text-center text-sm font-semibold text-slate-500 dark:text-slate-300">
+            No pricing plans found.
+          </p>
+        ) : (
+          <div className="grid items-stretch gap-8 lg:grid-cols-3">
+            {plans.map((plan) => (
+              <PricingCard key={plan.id} plan={plan} />
             ))}
           </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function PricingComparison() {
+  return (
+    <section
+      id="comparison"
+      className="bg-white px-5 py-20 lg:px-8 dark:bg-[#050b18]"
+    >
+      <div className="mx-auto max-w-7xl">
+        <div className="text-center">
+          <p className="text-sm font-black uppercase tracking-[0.25em] text-blue-600">
+            Compare Plans
+          </p>
+
+          <h2 className="mt-4 text-3xl font-black text-slate-950 sm:text-5xl dark:text-white">
+            What You Get in Each Plan
+          </h2>
+
+          <p className="mx-auto mt-5 max-w-3xl text-slate-600 dark:text-slate-300">
+            Compare machine limits, user roles, modules, reporting and support
+            before creating your company account.
+          </p>
         </div>
-      </main>
 
-      {/* Plan Details Section */}
-      <section id="comparison" className="bg-white px-5 py-20 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="text-center">
-            <p className="text-sm font-bold uppercase tracking-widest text-blue-600">
-              Plan Details
-            </p>
-
-            <h2 className="mt-3 text-3xl font-black text-slate-950 sm:text-4xl">
-              Compare What You Get
-            </h2>
-
-            <p className="mx-auto mt-4 max-w-3xl text-slate-500">
-              Understand which plan is suitable for your mining operation before
-              creating your company account.
-            </p>
-          </div>
-
-          <div className="mt-12 overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-xl">
-            <table className="w-full min-w-[760px]">
+        <div className="mt-12 overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-white/5">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px]">
               <thead>
                 <tr className="bg-blue-600 text-white">
-                  <th className="px-6 py-5 text-left text-sm font-bold">
+                  <th className="px-6 py-5 text-left text-sm font-black">
                     Features
                   </th>
-                  <th className="px-6 py-5 text-center text-sm font-bold">
+                  <th className="px-6 py-5 text-center text-sm font-black">
                     Basic
                   </th>
-                  <th className="px-6 py-5 text-center text-sm font-bold">
+                  <th className="px-6 py-5 text-center text-sm font-black">
                     Pro
                   </th>
-                  <th className="px-6 py-5 text-center text-sm font-bold">
-                    Enterprise
+                  <th className="px-6 py-5 text-center text-sm font-black">
+                    Plus
                   </th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
-                {[
-                  ["Machine Limit", "10 Machines", "50 Machines", "Unlimited"],
-                  ["User Roles", "Admin", "Admin, Engineer", "All Roles"],
-                  ["Maintenance Tasks", "Basic", "Advanced", "Advanced + Custom"],
-                  ["Modules", "Fleet + Alerts", "Fleet, Tyre, Engine, Hydraulic", "Full + Custom Modules"],
-                  ["Reporting", "Basic Reports", "Advanced Reports", "Group-Level Reporting"],
-                  ["OEM / Supplier Access", "No", "Limited", "Yes"],
-                  ["Support", "Email Support", "Priority Support", "Dedicated Support"],
-                ].map(([feature, basic, pro, enterprise]) => (
-                  <tr key={feature} className="hover:bg-blue-50/50">
-                    <td className="px-6 py-5 font-semibold text-slate-900">
+              <tbody className="divide-y divide-slate-200 text-sm text-slate-700 dark:divide-white/10 dark:text-slate-200">
+                {pricingComparison.map(([feature, basic, pro, plus]) => (
+                  <tr
+                    key={feature}
+                    className="transition hover:bg-blue-50 dark:hover:bg-white/5"
+                  >
+                    <td className="px-6 py-5 font-bold text-slate-950 dark:text-white">
                       {feature}
                     </td>
+
                     <td className="px-6 py-5 text-center">{basic}</td>
-                    <td className="px-6 py-5 text-center font-semibold text-blue-600">
+
+                    <td className="px-6 py-5 text-center font-bold text-blue-600 dark:text-blue-300">
                       {pro}
                     </td>
-                    <td className="px-6 py-5 text-center">{enterprise}</td>
+
+                    <td className="px-6 py-5 text-center">{plus}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* CTA */}
-      <section className="bg-slate-50 px-5 py-16 text-center lg:px-8">
-        <h2 className="text-3xl font-black text-slate-950">
-          Ready to start with HME intelligence?
+function PricingCTA() {
+  return (
+    <section className="relative z-10 bg-blue-600 px-5 py-20 text-center text-white lg:px-8">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.25),transparent_45%)]" />
+
+      <div className="relative mx-auto max-w-4xl">
+        <h2 className="text-3xl font-black sm:text-5xl">
+          Ready to Transform Your Mining Operations?
         </h2>
 
-        <p className="mt-4 text-slate-500">
-          Choose a plan and continue to create your company account.
+        <p className="mx-auto mt-5 max-w-2xl text-blue-50">
+          Start with a plan that fits your fleet and scale your maintenance
+          intelligence as your company grows.
         </p>
 
-        <Link
-          to="#plans"
-          className="mt-8 inline-flex rounded-full bg-blue-600 px-8 py-4 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-700"
+        <a
+          href="#plans"
+          className="mt-8 inline-flex rounded-2xl bg-white px-8 py-4 text-sm font-black text-blue-600 shadow-xl transition hover:-translate-y-0.5 hover:bg-blue-50"
         >
-          View Plans
-        </Link>
-      </section>
+          View Plans →
+        </a>
+      </div>
+    </section>
+  );
+}
 
-      {/* Footer */}
-      <footer
-        id="contact"
-        className="bg-slate-800 px-5 py-12 text-slate-300 lg:px-8 border-t border-slate-700"
-      >
-        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-4">
-          <div>
-            <h3 className="text-2xl font-black">
-              <span className="text-blue-400">HME</span>
-              <span className="text-white">intelligence</span>
-            </h3>
-            <p className="mt-4 text-sm leading-7 text-slate-400">
-              AI powered maintenance and fleet monitoring platform for mining companies.
-            </p>
-          </div>
+export default function PricingPage() {
+  const [active, setActive] = useState("pricing");
 
-          <div>
-            <h4 className="font-bold text-white">Product</h4>
-            <p className="mt-4 text-sm text-slate-400 hover:text-blue-400 cursor-pointer">
-              Features
-            </p>
-            <p className="mt-2 text-sm text-slate-400 hover:text-blue-400 cursor-pointer">
-              Pricing
-            </p>
-            <p className="mt-2 text-sm text-slate-400 hover:text-blue-400 cursor-pointer">
-              Reports
-            </p>
-          </div>
+  return (
+    <div className="min-h-screen bg-white text-slate-900 transition-colors duration-300 dark:bg-[#050b18] dark:text-white">
+      <Header active={active} setActive={setActive} />
 
-          <div>
-            <h4 className="font-bold text-white">Modules</h4>
-            <p className="mt-4 text-sm text-slate-400">Fleet</p>
-            <p className="mt-2 text-sm text-slate-400">Maintenance</p>
-            <p className="mt-2 text-sm text-slate-400">Alerts</p>
-          </div>
+      <main>
+        <PricingPlans />
+        <PricingComparison />
+        <PricingCTA />
+      </main>
 
-          <div>
-            <h4 className="font-bold text-white">Contact</h4>
-            <p className="mt-4 text-sm text-slate-400">support@miningai.com</p>
-            <p className="mt-2 text-sm text-slate-400">India</p>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-10 max-w-7xl border-t border-slate-700 pt-6 text-center text-sm text-slate-500">
-          © 2026 HMEintelligence. All rights reserved.
-        </div>
-      </footer>
+      <div className="[&_.reveal]:!translate-y-0 [&_.reveal]:!opacity-100">
+        <Footer />
+      </div>
     </div>
   );
 }
