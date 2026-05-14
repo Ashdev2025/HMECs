@@ -4,238 +4,252 @@ import { Menu, Moon, Sun, X } from "lucide-react";
 import logo1 from "../../assets/images/landingpageimages/logo1.png";
 
 type NavbarProps = {
-    active?: string;
-    setActive?: (value: string) => void;
+  active?: string;
+  setActive?: (value: string) => void;
 };
 
 const navLinks = [
-    { id: "home", label: "Home" },
-    { id: "features", label: "Features" },
-    { id: "maintenance", label: "Maintenance" },
-    { id: "reports", label: "Reports" },
-    { id: "about", label: "About" },
-    { id: "contact", label: "Contact" },
+  { id: "home", label: "Home" },
+  { id: "features", label: "Features" },
+  { id: "maintenance", label: "Maintenance" },
+  { id: "reports", label: "Reports" },
+  { id: "about", label: "About" },
+  { id: "contact", label: "Contact" },
 ];
 
 export default function Navbar({ active = "home", setActive }: NavbarProps) {
-    const [isDark, setIsDark] = useState(false);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
 
-    const navigate = useNavigate();
-    const location = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    const token = localStorage.getItem("token");
+  const isAuthPage =
+    location.pathname === "/signin" || location.pathname === "/signup";
 
-    useEffect(() => {
-        const savedTheme = localStorage.getItem("theme");
 
-        const shouldUseDark =
-            savedTheme === "dark" ||
-            (!savedTheme && document.documentElement.classList.contains("dark"));
 
-        document.documentElement.classList.toggle("dark", shouldUseDark);
-        setIsDark(shouldUseDark);
-    }, []);
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("authToken") ||
+    localStorage.getItem("accessToken");
 
-    const toggleTheme = () => {
-        const nextDark = !isDark;
+  const showDashboard = Boolean(token) && !isAuthPage;
 
-        document.documentElement.classList.toggle("dark", nextDark);
-        localStorage.setItem("theme", nextDark ? "dark" : "light");
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
 
-        setIsDark(nextDark);
-    };
+    const shouldUseDark =
+      savedTheme === "dark" ||
+      (!savedTheme && document.documentElement.classList.contains("dark"));
 
-    const scrollToSection = (id: string) => {
-        setActive?.(id);
-        setIsMenuOpen(false);
+    document.documentElement.classList.toggle("dark", shouldUseDark);
+    setIsDark(shouldUseDark);
+  }, []);
 
-        const section = document.getElementById(id);
 
-        if (section) {
-            section.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-            });
+  const toggleTheme = () => {
+    const nextDark = !isDark;
 
-            return;
-        }
+    document.documentElement.classList.toggle("dark", nextDark);
+    localStorage.setItem("theme", nextDark ? "dark" : "light");
 
-        navigate(`/#${id}`);
-    };
+    setIsDark(nextDark);
+  };
 
-   const handleDashboardClick = () => {
-  const role =
-    localStorage.getItem("role") ||
-    localStorage.getItem("userRole") ||
-    localStorage.getItem("user_type");
+  const scrollToSection = (id: string) => {
+    setActive?.(id);
+    setIsMenuOpen(false);
 
-  setIsMenuOpen(false);
+    const section = document.getElementById(id);
 
-  const normalizedRole = role?.toLowerCase().trim();
+    if (section) {
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      return;
+    }
 
-  if (normalizedRole === "super_admin" || normalizedRole === "system_admin") {
-    navigate("/super-admin/dashboard");
-    return;
-  }
+    navigate(`/#${id}`);
+  };
 
-  if (normalizedRole === "company_admin" || normalizedRole === "admin") {
-    navigate("/company-admin/dashboard");
-    return;
-  }
+  const handleDashboardClick = () => {
+    const role =
+      localStorage.getItem("role") ||
+      localStorage.getItem("userRole") ||
+      localStorage.getItem("user_type");
 
-  if (normalizedRole === "operator") {
-    navigate("/operator/dashboard");
-    return;
-  }
+    setIsMenuOpen(false);
 
-  if (normalizedRole === "mechanic") {
-    navigate("/mechanic/dashboard");
-    return;
-  }
+    const normalizedRole = role?.toLowerCase().trim();
 
-  navigate("/signin");
-};
-    useEffect(() => {
-        if (location.hash) {
-            const id = location.hash.replace("#", "");
+    if (normalizedRole === "super_admin" || normalizedRole === "system_admin") {
+      navigate("/super-admin/dashboard");
+      return;
+    }
 
-            setTimeout(() => {
-                document.getElementById(id)?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                });
-            }, 100);
-        }
-    }, [location.hash]);
+    if (normalizedRole === "company_admin" || normalizedRole === "admin") {
+      navigate("/company-admin/dashboard");
+      return;
+    }
 
-    return (
-        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 text-slate-900 shadow-sm backdrop-blur-xl transition-colors duration-300 dark:border-white/10 dark:bg-[#050817]/95 dark:text-white">
-            <div className="mx-auto flex h-[86px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-[90px] lg:px-8">
-                <Link to="/" className="flex items-center">
-                    <img
-                        src={logo1}
-                        alt="HME Logo"
-                        className="h-[60px] w-auto object-contain sm:h-[76px]"
-                    />
-                </Link>
+    if (normalizedRole === "operator") {
+      navigate("/operator/dashboard");
+      return;
+    }
 
-                <nav className="hidden items-center gap-7 lg:flex">
-                    {navLinks.map((link) => (
-                        <button
-                            key={link.id}
-                            type="button"
-                            onClick={() => scrollToSection(link.id)}
-                            className={`relative text-sm font-semibold tracking-tight transition ${active === link.id
-                                    ? "text-blue-600 dark:text-white"
-                                    : "text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-white"
-                                }`}
-                        >
-                            {link.label}
+    if (normalizedRole === "mechanic") {
+      navigate("/mechanic/dashboard");
+      return;
+    }
 
-                            {active === link.id && (
-                                <span className="absolute -bottom-2 left-0 h-[2px] w-full rounded-full bg-blue-600 dark:bg-white" />
-                            )}
-                        </button>
-                    ))}
-                </nav>
+    navigate("/signin");
+  };
 
-                <div className="flex items-center gap-2 sm:gap-3">
-                    <button
-                        type="button"
-                        onClick={toggleTheme}
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-800 transition hover:bg-slate-200 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                        aria-label="Toggle theme"
-                    >
-                        {isDark ? <Sun size={20} /> : <Moon size={20} />}
-                    </button>
+  useEffect(() => {
+    if (location.hash) {
+      const id = location.hash.replace("#", "");
 
-                    {!token ? (
-                        <>
-                            <Link
-                                to="/signin"
-                                className="hidden text-sm font-semibold text-slate-600 transition hover:text-blue-600 dark:text-slate-300 dark:hover:text-white sm:inline-flex"
-                            >
-                                Login
-                            </Link>
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
+    }
+  }, [location.hash]);
 
-                            <Link
-                                to="/pricing"
-                                className="hidden rounded-lg bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-blue-600 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 sm:inline-flex"
-                            >
-                                Get Started
-                            </Link>
-                        </>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={handleDashboardClick}
-                            className="hidden rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-blue-700 sm:inline-flex"
-                        >
-                            Dashboard
-                        </button>
-                    )}
+  return (
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 text-slate-900 shadow-sm backdrop-blur-xl transition-colors duration-300 dark:border-white/10 dark:bg-[#050817]/95 dark:text-white">
+      <div className="mx-auto flex h-[86px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-[90px] lg:px-8">
+        <Link to="/" className="flex items-center">
+          <img
+            src={logo1}
+            alt="HME Logo"
+            className="h-[60px] w-auto object-contain sm:h-[76px]"
+          />
+        </Link>
 
-                    <button
-                        type="button"
-                        onClick={() => setIsMenuOpen((prev) => !prev)}
-                        className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 transition hover:bg-slate-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 lg:hidden"
-                        aria-label="Toggle menu"
-                    >
-                        {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-                    </button>
-                </div>
+        <nav className="hidden items-center gap-7 lg:flex">
+          {navLinks.map((link) => (
+            <button
+              key={link.id}
+              type="button"
+              onClick={() => scrollToSection(link.id)}
+              className={`relative text-sm font-semibold tracking-tight transition ${
+                active === link.id
+                  ? "text-blue-600 dark:text-white"
+                  : "text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-white"
+              }`}
+            >
+              {link.label}
+
+              {active === link.id && (
+                <span className="absolute -bottom-2 left-0 h-[2px] w-full rounded-full bg-blue-600 dark:bg-white" />
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-800 transition hover:bg-slate-200 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+            aria-label="Toggle theme"
+          >
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+
+          {!showDashboard ? (
+            <>
+              <Link
+                to="/signin"
+                className="hidden text-sm font-semibold text-slate-600 transition hover:text-blue-600 dark:text-slate-300 dark:hover:text-white sm:inline-flex"
+              >
+                Login
+              </Link>
+
+              <Link
+                to="/plans"
+                className="hidden rounded-lg bg-slate-950 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-blue-600 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100 sm:inline-flex"
+              >
+                Get Started
+              </Link>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={handleDashboardClick}
+              className="hidden rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-blue-700 sm:inline-flex"
+            >
+              Dashboard
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-900 transition hover:bg-slate-100 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15 lg:hidden"
+            aria-label="Toggle menu"
+          >
+            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </div>
+
+      {isMenuOpen && (
+        <div className="border-t border-slate-200 bg-white px-4 py-4 shadow-lg dark:border-white/10 dark:bg-[#050817] lg:hidden">
+          <div className="space-y-2">
+            {navLinks.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => scrollToSection(link.id)}
+                className={`block w-full rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
+                  active === link.id
+                    ? "bg-blue-50 text-blue-600 dark:bg-white/10 dark:text-white"
+                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+                }`}
+              >
+                {link.label}
+              </button>
+            ))}
+
+            <div className="grid grid-cols-2 gap-3 pt-3">
+              {!showDashboard ? (
+                <>
+                  <Link
+                    to="/signin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-bold text-slate-700 dark:border-white/15 dark:text-white"
+                  >
+                    Login
+                  </Link>
+
+                  <Link
+                    to="/plans"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white"
+                  >
+                    Get Started
+                  </Link>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDashboardClick}
+                  className="col-span-2 rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white shadow-md transition hover:bg-blue-700"
+                >
+                  Dashboard
+                </button>
+              )}
             </div>
-
-            {isMenuOpen && (
-                <div className="border-t border-slate-200 bg-white px-4 py-4 shadow-lg dark:border-white/10 dark:bg-[#050817] lg:hidden">
-                    <div className="space-y-2">
-                        {navLinks.map((link) => (
-                            <button
-                                key={link.id}
-                                type="button"
-                                onClick={() => scrollToSection(link.id)}
-                                className={`block w-full rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${active === link.id
-                                        ? "bg-blue-50 text-blue-600 dark:bg-white/10 dark:text-white"
-                                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
-                                    }`}
-                            >
-                                {link.label}
-                            </button>
-                        ))}
-
-                        <div className="grid grid-cols-2 gap-3 pt-3">
-                            {!token ? (
-                                <>
-                                    <Link
-                                        to="/signin"
-                                        onClick={() => setIsMenuOpen(false)}
-                                        className="rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-bold text-slate-700 dark:border-white/15 dark:text-white"
-                                    >
-                                        Login
-                                    </Link>
-
-                                    <Link
-                                        to="/pricing"
-                                        onClick={() => setIsMenuOpen(false)}
-                                        className="rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white"
-                                    >
-                                        Get Started
-                                    </Link>
-                                </>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={handleDashboardClick}
-                                    className="col-span-2 rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white shadow-md transition hover:bg-blue-700"
-                                >
-                                    Dashboard
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </header>
-    );
+          </div>
+        </div>
+      )}
+    </header>
+  );
 }

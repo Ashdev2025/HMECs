@@ -4,6 +4,9 @@ import {
   UserCircleIcon,
   PieChartIcon,
   BoxCubeIcon,
+  TableIcon,
+  TaskIcon,
+  PlusIcon,
 } from "../icons";
 
 export type UserRole = "super_admin" | "company_admin";
@@ -13,6 +16,7 @@ export type NavLinkItem = {
   icon: React.ReactNode;
   path?: string;
   children?: NavLinkItem[];
+  isComingSoon?: boolean;
 };
 
 export type NavGroup = {
@@ -116,17 +120,24 @@ export const sidebarConfig: Record<
     },
     navGroups: [
       {
-        title: "Company Management",
+        title: "Staff Management",
         items: [
           {
-            name: "Staff Management",
+            name: "Manage Staff",
             path: "/company-admin/staff",
             icon: <UserCircleIcon />,
           },
           {
-            name: "Machines",
-            path: "/company-admin/machines",
+            name: "Roles & Permissions",
+            path: "/company-admin/coming-soon/roles",
             icon: <BoxCubeIcon />,
+            isComingSoon: true,
+          },
+          {
+            name: "Teams & Groups",
+            path: "/company-admin/coming-soon/teams",
+            icon: <BoxCubeIcon />,
+            isComingSoon: true,
           },
         ],
       },
@@ -134,9 +145,19 @@ export const sidebarConfig: Record<
         title: "Monitoring",
         items: [
           {
-            name: "Machine Health",
-            path: "/company-admin/machine-health",
-            icon: <PieChartIcon />,
+            name: "Component Register",
+            path: "/company-admin/register",
+            icon: <TableIcon />,
+          },
+          {
+            name: "Maintenance Log",
+            path: "/company-admin/maintenance",
+            icon: <TaskIcon />,
+          },
+          {
+            name: "Fleet Heat Map",
+            path: "/company-admin/heatmap",
+            icon: <GridIcon />,
           },
           {
             name: "Alerts & Logs",
@@ -145,7 +166,18 @@ export const sidebarConfig: Record<
           },
           {
             name: "Reports",
-            path: "/company-admin/reports",
+            path: "/company-admin/coming-soon/reports",
+            icon: <BoxCubeIcon />,
+            isComingSoon: true,
+          },
+        ],
+      },
+      {
+        title: "Plans",
+        items: [
+          {
+            name: "Subscriptions",
+            path: "/company-admin/subscriptions",
             icon: <BoxCubeIcon />,
           },
         ],
@@ -155,8 +187,9 @@ export const sidebarConfig: Record<
         items: [
           {
             name: "Company Settings",
-            path: "/company-admin/settings",
+            path: "/company-admin/coming-soon/settings",
             icon: <BoxCubeIcon />,
+            isComingSoon: true,
           },
         ],
       },

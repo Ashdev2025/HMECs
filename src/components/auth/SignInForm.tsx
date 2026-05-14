@@ -1,6 +1,6 @@
 import toast from "react-hot-toast";
 import { FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -8,6 +8,7 @@ import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { authService } from "../../services/authService";
+import { userService } from "../../services/userService";
 
 import Navbar from "../../components/landing/Navbar";
 import Footer from "../../components/landing/Footer";
@@ -18,15 +19,40 @@ type FormErrors = {
 };
 
 type LoginUser = {
+  id?: string | number;
   role?: string;
+  role_name?: string;
   email?: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   companyName?: string;
   company?: string;
+  company_name?: string;
+  role_id?: string | number;
+};
+
+type LoginResponse = {
+  message?: string;
+  token?: string;
+  accessToken?: string;
+  access_token?: string;
+  user?: LoginUser;
+  admin?: LoginUser;
+  company?: LoginUser;
+  data?: {
+    token?: string;
+    accessToken?: string;
+    access_token?: string;
+    user?: LoginUser;
+    admin?: LoginUser;
+    company?: LoginUser;
+  };
 };
 
 type DecodedToken = {
   role?: string;
+  role_name?: string;
   email?: string;
   name?: string;
   companyName?: string;
@@ -36,7 +62,7 @@ type DecodedToken = {
 };
 
 export default function SignInForm() {
-  const navigate = useNavigate();
+
 
   const [active, setActive] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -99,18 +125,32 @@ export default function SignInForm() {
     }
   };
 
-  const normalizeRole = (role?: string) => {
-    return role?.toLowerCase().trim().replace(/\s+/g, "_").replace(/-/g, "_");
+  const normalizeRole = (role?: string | number | null) => {
+    if (!role) return "";
+
+    return String(role)
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/-/g, "_");
   };
 
-  const getRedirectPathByRole = (role?: string) => {
+  const getRedirectPathByRole = (role?: string | number | null) => {
     const normalizedRole = normalizeRole(role);
 
-    if (normalizedRole === "super_admin" || normalizedRole === "superadmin") {
+    if (
+      normalizedRole === "super_admin" ||
+      normalizedRole === "superadmin" ||
+      normalizedRole === "super_admin_role"
+    ) {
       return "/super-admin/dashboard";
     }
 
-    if (normalizedRole === "admin" || normalizedRole === "company_admin") {
+    if (
+      normalizedRole === "admin" ||
+      normalizedRole === "company_admin" ||
+      normalizedRole === "companyadmin"
+    ) {
       return "/company-admin/dashboard";
     }
 
@@ -122,15 +162,40 @@ export default function SignInForm() {
       return "/mechanic/dashboard";
     }
 
+    if (normalizedRole === "engineer") {
+      return "/engineer/dashboard";
+    }
+
+    if (normalizedRole === "planner") {
+      return "/planner/dashboard";
+    }
+
+    if (normalizedRole === "viewer") {
+      return "/viewer/dashboard";
+    }
+
     return null;
   };
 
   const clearAuthStorage = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("role");
   };
 
-  const showLoginSuccessToast = (role?: string, user?: LoginUser) => {
+  const getUserFullName = (user?: LoginUser) => {
+    const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
+    return user?.name || fullName || user?.email || "User";
+  };
+
+  const getLoginData = (response: LoginResponse) => {
+    return response?.data || response;
+  };
+
+  const showLoginSuccessToast = (
+    role?: string | number | null,
+    user?: LoginUser,
+  ) => {
     const normalizedRole = normalizeRole(role);
 
     if (normalizedRole === "super_admin" || normalizedRole === "superadmin") {
@@ -140,7 +205,10 @@ export default function SignInForm() {
 
     if (normalizedRole === "admin" || normalizedRole === "company_admin") {
       const companyName =
-        user?.companyName || user?.company || user?.name || "Company Admin";
+        user?.companyName ||
+        user?.company_name ||
+        user?.company ||
+        getUserFullName(user);
 
       toast.success(`${companyName} login successful`);
       return;
@@ -156,6 +224,21 @@ export default function SignInForm() {
       return;
     }
 
+    if (normalizedRole === "engineer") {
+      toast.success("Engineer login successful");
+      return;
+    }
+
+    if (normalizedRole === "planner") {
+      toast.success("Planner login successful");
+      return;
+    }
+
+    if (normalizedRole === "viewer") {
+      toast.success("Viewer login successful");
+      return;
+    }
+
     toast.success("Login successful");
   };
 
@@ -168,53 +251,106 @@ export default function SignInForm() {
       setIsSubmitting(true);
       setErrors({});
 
-      const response = await authService.login({
+      const response = (await authService.login({
         email: email.trim(),
         password,
-      });
+      })) as LoginResponse;
 
-      const token = response?.token;
+      console.log("LOGIN RESPONSE:", response);
+
+      const loginData = getLoginData(response);
+
+      const token =
+        loginData?.token || loginData?.accessToken || loginData?.access_token;
+
+      const apiUser =
+        loginData?.user || loginData?.admin || loginData?.company || undefined;
+
+      console.log("LOGIN DATA:", loginData);
+      console.log("TOKEN:", token);
+      console.log("API USER:", apiUser);
 
       if (!token) {
         clearAuthStorage();
-        setErrors({ password: "Invalid email or password" });
-        toast.error("Invalid email or password");
+        setErrors({ password: "Token not found in login response." });
+        toast.error("Token not found in login response");
         return;
       }
 
       const decodedToken = decodeToken(token);
-      const apiUser = response?.user as LoginUser | undefined;
+
+      console.log("DECODED TOKEN:", decodedToken);
 
       const userRole =
-        decodedToken?.role || decodedToken?.user?.role || apiUser?.role;
+        decodedToken?.role ||
+        decodedToken?.role_name ||
+        decodedToken?.user?.role ||
+        decodedToken?.user?.role_name ||
+        apiUser?.role ||
+        apiUser?.role_name;
 
       const redirectPath = getRedirectPathByRole(userRole);
 
+      console.log("USER ROLE:", userRole);
+      console.log("REDIRECT PATH:", redirectPath);
+
       if (!redirectPath) {
         clearAuthStorage();
-        setErrors({ password: "Invalid email or password" });
-        toast.error("Invalid email or password");
+        setErrors({
+          password: `Role not allowed: ${userRole || "No role found"}`,
+        });
+        toast.error(`Role not allowed: ${userRole || "No role found"}`);
         return;
       }
 
       const finalUser: LoginUser = {
-        role: userRole,
+        id: apiUser?.id,
+        role: normalizeRole(userRole),
+        role_name: apiUser?.role_name,
+        role_id: apiUser?.role_id,
         email:
-          decodedToken?.email || decodedToken?.user?.email || apiUser?.email,
-        name: decodedToken?.name || decodedToken?.user?.name || apiUser?.name,
+          decodedToken?.email ||
+          decodedToken?.user?.email ||
+          apiUser?.email ||
+          email.trim(),
+        name:
+          decodedToken?.name ||
+          decodedToken?.user?.name ||
+          apiUser?.name ||
+          getUserFullName(apiUser),
+        first_name: apiUser?.first_name,
+        last_name: apiUser?.last_name,
         companyName:
           decodedToken?.companyName ||
           decodedToken?.user?.companyName ||
-          apiUser?.companyName,
+          apiUser?.companyName ||
+          apiUser?.company_name,
         company:
           decodedToken?.company ||
           decodedToken?.user?.company ||
-          apiUser?.company,
+          apiUser?.company ||
+          apiUser?.company_name,
       };
 
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(finalUser));
-      localStorage.setItem("role", normalizeRole(userRole) || "");
+      localStorage.setItem("role", normalizeRole(userRole));
+      localStorage.setItem("email", finalUser.email || "");
+      localStorage.setItem("name", finalUser.name || "");
+
+      // After setting token, check subscription for company admin
+      let finalRedirect = redirectPath;
+      if (normalizeRole(userRole) === "company_admin" || normalizeRole(userRole) === "admin") {
+        try {
+          const sub = await userService.getActiveSubscription();
+          if (!sub) {
+            finalRedirect = "/plans";
+          }
+        } catch (subErr) {
+          console.error("Sub check error during login:", subErr);
+          // If error, default to redirectPath and let dashboard handle it
+        }
+      }
 
       if (isChecked) {
         localStorage.setItem("rememberMe", "true");
@@ -225,10 +361,13 @@ export default function SignInForm() {
       }
 
       showLoginSuccessToast(userRole, finalUser);
+      
+      // Check for redirect query parameter
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectParam = searchParams.get("redirect");
+      const finalDest = redirectParam || finalRedirect;
 
-      setTimeout(() => {
-        navigate(redirectPath, { replace: true });
-      }, 1200);
+      window.location.href = finalDest;
     } catch (error) {
       console.error("Login API Error:", error);
 

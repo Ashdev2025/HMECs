@@ -32,7 +32,7 @@ const emptyPlan: Plan = {
 };
 
 const featuresToText = (
-  features: Record<string, boolean> | string[] | null
+  features: Record<string, boolean> | string[] | null,
 ) => {
   if (Array.isArray(features)) return features.join(", ");
 
@@ -106,8 +106,19 @@ export default function Plans() {
       setLoading(true);
       setError("");
 
-      const response = await getSubscriptionPlans();
-      const apiPlans = Array.isArray(response) ? response : [];
+      const response: any = await getSubscriptionPlans();
+
+      console.log("Plans API Response:", response);
+
+      const apiPlans = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.plans)
+            ? response.plans
+            : Array.isArray(response?.data?.plans)
+              ? response.data.plans
+              : [];
 
       setPlans(apiPlans.map(mapApiPlanToPlan));
     } catch (err) {
@@ -128,7 +139,8 @@ export default function Plans() {
     const numericPrice = getNumericPrice(plan.price);
 
     if (!plan.name.trim()) return "Plan name is required";
-    if (!plan.machines || plan.machines <= 0) return "Machine limit is required";
+    if (!plan.machines || plan.machines <= 0)
+      return "Machine limit is required";
     if (!numericPrice || numericPrice <= 0) return "Valid price is required";
 
     return "";
@@ -374,7 +386,6 @@ export default function Plans() {
 
                   <div className="font-medium text-slate-700 dark:text-slate-200">
                     {plan.price}
-                    <span className="text-slate-400">/month</span>
                   </div>
 
                   <div className="text-slate-600 dark:text-slate-300">
@@ -400,7 +411,7 @@ export default function Plans() {
                         setError("");
                         setDeletePlan(plan);
                       }}
-                      className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/10"
+                      className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/10"
                       title="Delete Plan"
                     >
                       <Trash2 size={16} />

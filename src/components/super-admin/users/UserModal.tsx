@@ -1,3 +1,4 @@
+import { toast } from "react-hot-toast";
 import type { ModalMode, UserFormData, UserStatus } from "./userTypes";
 
 type UserModalProps = {
@@ -21,6 +22,37 @@ export default function UserModal({
 }: UserModalProps) {
   if (!isOpen) return null;
 
+  const handleSubmit = async () => {
+    const name = formData.name?.trim();
+    const email = formData.email?.trim();
+
+    if (!name) {
+      toast.error("Full name is required.");
+      return;
+    }
+
+    if (!email) {
+      toast.error("Email is required.");
+      return;
+    }
+
+    try {
+      await onSubmit();
+      toast.success(
+        mode === "add"
+          ? "User created successfully."
+          : "User updated successfully."
+      );
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.message ||
+          "Something went wrong. Please try again."
+      );
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center overflow-y-auto bg-black/70 px-3 py-4 backdrop-blur-md">
       <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-4 shadow-xl dark:border-[#1F2A44] dark:bg-[#111827] sm:p-5">
@@ -30,6 +62,7 @@ export default function UserModal({
           </h2>
 
           <button
+            type="button"
             onClick={onClose}
             disabled={isSubmitting}
             className="text-xl text-gray-500 transition hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400"
@@ -43,12 +76,15 @@ export default function UserModal({
             placeholder="Full Name"
             value={formData.name}
             disabled={isSubmitting}
-            onChange={(e) => onFormChange({ ...formData, name: e.target.value })}
+            onChange={(e) =>
+              onFormChange({ ...formData, name: e.target.value })
+            }
             className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#1F2A44] dark:bg-[#0F172A] dark:text-white sm:col-span-2"
           />
 
           <input
             placeholder="Email"
+            type="email"
             value={formData.email}
             disabled={isSubmitting}
             onChange={(e) =>
@@ -80,12 +116,15 @@ export default function UserModal({
           <select
             value={formData.role}
             disabled={isSubmitting}
-            onChange={(e) => onFormChange({ ...formData, role: e.target.value })}
+            onChange={(e) =>
+              onFormChange({ ...formData, role: e.target.value })
+            }
             className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#1F2A44] dark:bg-[#0F172A] dark:text-white"
           >
-            <option>Company Admin</option>
-            <option>Operator</option>
-            <option>Mechanic</option>
+            <option value="Admin">Admin</option>
+            <option value="Engineer">Engineer</option>
+            <option value="Planner">Planner</option>
+            <option value="Viewer">Viewer</option>
           </select>
 
           <select
@@ -107,6 +146,7 @@ export default function UserModal({
 
         <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
+            type="button"
             onClick={onClose}
             disabled={isSubmitting}
             className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#1F2A44] dark:text-slate-300"
@@ -115,7 +155,8 @@ export default function UserModal({
           </button>
 
           <button
-            onClick={onSubmit}
+            type="button"
+            onClick={handleSubmit}
             disabled={isSubmitting}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
           >
@@ -124,8 +165,8 @@ export default function UserModal({
                 ? "Creating..."
                 : "Updating..."
               : mode === "add"
-              ? "Add User"
-              : "Update User"}
+                ? "Add User"
+                : "Update User"}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import toast, { Toaster } from "react-hot-toast";
 import {
   MoreVertical,
   Search,
@@ -13,9 +14,11 @@ import {
   Shield,
   Phone,
   Building2,
+  TrendingUp,
 } from "lucide-react";
 import Pagination from "../../common/Pagination";
 import { userService } from "../../../services/userService";
+import { useNavigate } from "react-router";
 
 type ApiUser = {
   id: string | number;
@@ -33,11 +36,13 @@ type ApiUser = {
   company_id?: string | number | null;
   company_code?: string | null;
   company_name?: string;
-  company?: string | { name?: string };
+  company?: string | { name?: string; code?: string };
   status?: string;
   is_active?: boolean;
   created_at?: string;
   createdAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
 };
 
 type Admin = {
@@ -48,19 +53,16 @@ type Admin = {
   email: string;
   mobileNumber: string;
   roleName: string;
-  companyId: string;
+  companyName: string;
   companyCode: string;
   status: string;
   avatar: string;
-  plan: string;
-  operators: number;
-  mechanics: number;
-  machines: number;
-  joined: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 const roleColor: Record<string, string> = {
-  system_admin:
+  super_admin:
     "bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400",
   admin: "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400",
   engineer:
@@ -70,9 +72,64 @@ const roleColor: Record<string, string> = {
   viewer: "bg-gray-50 text-gray-700 dark:bg-gray-500/15 dark:text-gray-400",
 };
 
+const uniqueRoles = ["super_admin", "admin", "engineer", "planner", "viewer"];
+
+const getApiMessage = (response: unknown, fallback: string) => {
+  if (response && typeof response === "object") {
+    const data = response as {
+      message?: string;
+      error?: string;
+      data?: { message?: string };
+    };
+
+    return data.message || data.error || data.data?.message || fallback;
+  }
+
+  return fallback;
+};
+
+const getErrorMessage = (err: unknown, fallback: string) => {
+  if (err && typeof err === "object") {
+    const error = err as {
+      message?: string;
+      response?: {
+        data?: {
+          message?: string;
+          error?: string;
+        };
+      };
+    };
+
+    return (
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      fallback
+    );
+  }
+
+  return fallback;
+};
+
 const formatRole = (role?: string) => {
   if (!role) return "-";
   return role.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const formatDateTime = (date?: string) => {
+  if (!date) return "-";
+
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) return date;
+
+  return parsedDate.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 const getAvatar = (name: string) => {
@@ -87,15 +144,18 @@ const getAvatar = (name: string) => {
 
 const getCompanyName = (user: ApiUser) => {
   if (typeof user.company === "object") {
-    return user.company?.name || user.company_code || "-";
+    return user.company?.name || user.company_name || "-";
   }
 
-  return (
-    user.company_name ||
-    user.company ||
-    user.company_code ||
-    String(user.company_id || "-")
-  );
+  return user.company_name || user.company || "-";
+};
+
+const getCompanyCode = (user: ApiUser) => {
+  if (typeof user.company === "object") {
+    return user.company?.code || user.company_code || "-";
+  }
+
+  return user.company_code || "-";
 };
 
 const getStatus = (user: ApiUser) => {
@@ -104,6 +164,18 @@ const getStatus = (user: ApiUser) => {
   }
 
   return user.status?.toLowerCase() === "inactive" ? "Inactive" : "Active";
+};
+
+const normalizeRole = (role?: string) => {
+  const value = (role || "").toLowerCase();
+
+  if (value === "super_admin") return "super_admin";
+  if (value === "admin") return "admin";
+  if (value === "engineer") return "engineer";
+  if (value === "planner") return "planner";
+  if (value === "viewer") return "viewer";
+
+  return value || "viewer";
 };
 
 const mapApiUserToAdmin = (user: ApiUser): Admin => {
@@ -116,7 +188,7 @@ const mapApiUserToAdmin = (user: ApiUser): Admin => {
   const roleValue =
     user.role_name ||
     (typeof user.role === "object" ? user.role?.name : user.role) ||
-    "planner";
+    "viewer";
 
   return {
     id: user.id,
@@ -125,20 +197,18 @@ const mapApiUserToAdmin = (user: ApiUser): Admin => {
     name: fullName,
     email: user.email || "",
     mobileNumber: user.mobile_number || user.mobile || user.phone || "",
-    roleName: roleValue,
-    companyId: String(user.company_id || ""),
-    companyCode: getCompanyName(user),
+    roleName: normalizeRole(roleValue),
+    companyName: getCompanyName(user),
+    companyCode: getCompanyCode(user),
     status: getStatus(user),
     avatar: getAvatar(fullName),
-    plan: "Basic",
-    operators: 0,
-    mechanics: 0,
-    machines: 0,
-    joined: user.created_at || user.createdAt || "-",
+    createdAt: user.created_at || user.createdAt || "-",
+    updatedAt: user.updated_at || user.updatedAt || "-",
   };
 };
 
 export default function AdminManagementTable() {
+  const navigate = useNavigate();
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
@@ -167,11 +237,38 @@ export default function AdminManagementTable() {
 
       const response = await userService.getUsers();
 
-      const usersData = response as ApiUser[];
+      const rawResponse = response as
+  | ApiUser[]
+  | {
+      users?: ApiUser[];
+      roles?: ApiUser[];
+      data?:
+        | ApiUser[]
+        | {
+            users?: ApiUser[];
+            roles?: ApiUser[];
+          };
+    };
 
-      setAdmins(usersData.map(mapApiUserToAdmin));
+const usersData = Array.isArray(rawResponse)
+  ? rawResponse
+  : Array.isArray(rawResponse?.users)
+    ? rawResponse.users
+    : Array.isArray(rawResponse?.data)
+      ? rawResponse.data
+      : Array.isArray(rawResponse?.data?.users)
+        ? rawResponse.data.users
+        : [];
+
+    setAdmins(
+  Array.isArray(usersData)
+    ? usersData.map(mapApiUserToAdmin)
+    : []
+);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch users");
+      const message = getErrorMessage(err, "Failed to fetch users");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -180,8 +277,6 @@ export default function AdminManagementTable() {
   useEffect(() => {
     fetchUsers();
   }, []);
-
-  const uniqueRoles = ["system_admin", "admin", "engineer", "planner", "viewer"];
 
   const activeFilterCount =
     (selectedRole !== "All" ? 1 : 0) + (selectedStatus !== "All" ? 1 : 0);
@@ -195,6 +290,7 @@ export default function AdminManagementTable() {
         admin.email.toLowerCase().includes(searchText) ||
         admin.mobileNumber.toLowerCase().includes(searchText) ||
         admin.roleName.toLowerCase().includes(searchText) ||
+        admin.companyName.toLowerCase().includes(searchText) ||
         admin.companyCode.toLowerCase().includes(searchText);
 
       const matchesRole =
@@ -247,7 +343,7 @@ export default function AdminManagementTable() {
       setSelectedAdmin(freshAdmin);
       setModalType("view");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to fetch user details");
+      toast.error(getErrorMessage(err, "Failed to fetch user details"));
     } finally {
       setViewLoading(false);
     }
@@ -275,29 +371,30 @@ export default function AdminManagementTable() {
       !editForm.email.trim() ||
       !editForm.mobileNumber.trim() ||
       !editForm.roleName.trim() ||
-      !editForm.companyId.trim()
+      !editForm.companyName.trim()
     ) {
-      alert("Please fill all required fields");
+      toast.error("Please fill all required fields");
       return;
     }
 
     try {
       setIsSubmitting(true);
 
-      await userService.updateUser(selectedAdmin.id, {
+      const response = await userService.updateUser(selectedAdmin.id, {
         first_name: editForm.firstName,
         last_name: editForm.lastName,
         email: editForm.email,
         mobile_number: editForm.mobileNumber,
         role_name: editForm.roleName,
-        company_id: editForm.companyId,
+        company_name: editForm.companyName,
       });
 
       await fetchUsers();
       closeModal();
-      alert("User updated successfully");
+
+      toast.success(getApiMessage(response, "User updated successfully"));
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update user");
+      toast.error(getErrorMessage(err, "Failed to update user"));
     } finally {
       setIsSubmitting(false);
     }
@@ -309,14 +406,14 @@ export default function AdminManagementTable() {
     try {
       setIsSubmitting(true);
 
-      await userService.deleteUser(selectedAdmin.id);
+      const response = await userService.deleteUser(selectedAdmin.id);
 
       await fetchUsers();
       closeModal();
 
-      alert("User deleted successfully");
+      toast.success(getApiMessage(response, "User deleted successfully"));
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete user");
+      toast.error(getErrorMessage(err, "Failed to delete user"));
     } finally {
       setIsSubmitting(false);
     }
@@ -332,6 +429,30 @@ export default function AdminManagementTable() {
 
   return (
     <>
+      <Toaster
+        position="top-right"
+        containerStyle={{
+          zIndex: 999999,
+        }}
+        toastOptions={{
+          duration: 3000,
+          style: {
+            borderRadius: "12px",
+            background: "#111827",
+            color: "#fff",
+            fontSize: "14px",
+            padding: "12px 14px",
+            boxShadow: "0 18px 45px rgba(0,0,0,0.25)",
+          },
+          success: {
+            duration: 2500,
+          },
+          error: {
+            duration: 3500,
+          },
+        }}
+      />
+
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -469,8 +590,8 @@ export default function AdminManagementTable() {
                 <th className="px-4 py-3 font-medium">User</th>
                 <th className="px-4 py-3 font-medium">Mobile</th>
                 <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">Company ID</th>
-                <th className="px-4 py-3 font-medium">Company</th>
+                <th className="px-4 py-3 font-medium">Company Code</th>
+                <th className="px-4 py-3 font-medium">Company Name</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
@@ -533,11 +654,11 @@ export default function AdminManagementTable() {
                     </td>
 
                     <td className="px-4 py-4 text-gray-700 dark:text-gray-300">
-                      {admin.companyId || "-"}
+                      {admin.companyCode || "-"}
                     </td>
 
                     <td className="px-4 py-4 text-gray-700 dark:text-gray-300">
-                      {admin.companyCode || "-"}
+                      {admin.companyName || "-"}
                     </td>
 
                     <td className="px-4 py-4">
@@ -575,6 +696,14 @@ export default function AdminManagementTable() {
                           >
                             <Eye size={15} />
                             {viewLoading ? "Loading..." : "View"}
+                          </button>
+
+                          <button
+                            onClick={() => navigate("/super-admin/intelligence")}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-white/10"
+                          >
+                            <TrendingUp size={15} />
+                            Intelligence
                           </button>
 
                           <button
@@ -642,11 +771,6 @@ export default function AdminManagementTable() {
                   {modalType === "edit" && "Edit User"}
                   {modalType === "delete" && "Delete User"}
                 </h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {modalType === "delete"
-                    ? "This action cannot be undone."
-                    : "Manage user information smoothly."}
-                </p>
               </div>
 
               <button
@@ -657,48 +781,6 @@ export default function AdminManagementTable() {
                 <X size={18} />
               </button>
             </div>
-
-            {modalType === "view" && (
-              <div>
-                <div className="mb-5 flex items-center gap-4 rounded-2xl bg-gray-50 p-4 dark:bg-white/[0.04]">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-lg font-semibold text-white">
-                    {selectedAdmin.avatar || "U"}
-                  </div>
-
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-900 dark:text-white">
-                      {selectedAdmin.name}
-                    </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {selectedAdmin.email}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <DetailBox label="First Name" value={selectedAdmin.firstName} />
-                  <DetailBox label="Last Name" value={selectedAdmin.lastName} />
-                  <DetailBox label="Email" value={selectedAdmin.email} />
-                  <DetailBox label="Mobile" value={selectedAdmin.mobileNumber} />
-                  <DetailBox
-                    label="Role"
-                    value={formatRole(selectedAdmin.roleName)}
-                  />
-                  <DetailBox label="Company ID" value={selectedAdmin.companyId} />
-                  <DetailBox label="Company" value={selectedAdmin.companyCode} />
-                  <DetailBox label="Status" value={selectedAdmin.status} />
-                  <DetailBox label="User ID" value={String(selectedAdmin.id)} />
-                  <DetailBox label="Joined" value={selectedAdmin.joined} />
-                </div>
-
-                <button
-                  onClick={closeModal}
-                  className="mt-5 h-11 w-full rounded-xl bg-blue-600 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Close
-                </button>
-              </div>
-            )}
 
             {modalType === "edit" && editForm && (
               <div className="space-y-3">
@@ -740,7 +822,7 @@ export default function AdminManagementTable() {
 
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                    Role Name
+                    Role
                   </label>
 
                   <div className="relative">
@@ -756,21 +838,21 @@ export default function AdminManagementTable() {
                       }
                       className="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm text-gray-700 outline-none focus:border-blue-500 dark:border-gray-800 dark:bg-[#111c2f] dark:text-gray-300"
                     >
-                      <option value="system_admin">system_admin</option>
-                      <option value="admin">admin</option>
-                      <option value="engineer">engineer</option>
-                      <option value="planner">planner</option>
-                      <option value="viewer">viewer</option>
+                      {uniqueRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {formatRole(role)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
                 <InputBox
-                  label="Company ID"
+                  label="Company Name"
                   icon={<Building2 size={16} />}
-                  value={editForm.companyId}
+                  value={editForm.companyName}
                   onChange={(value) =>
-                    setEditForm({ ...editForm, companyId: value })
+                    setEditForm({ ...editForm, companyName: value })
                   }
                 />
 
@@ -794,20 +876,55 @@ export default function AdminManagementTable() {
               </div>
             )}
 
+            {modalType === "view" && (
+              <div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <DetailBox label="First Name" value={selectedAdmin.firstName} />
+                  <DetailBox label="Last Name" value={selectedAdmin.lastName} />
+                  <DetailBox label="Email" value={selectedAdmin.email} />
+                  <DetailBox label="Mobile" value={selectedAdmin.mobileNumber} />
+                  <DetailBox
+                    label="Role"
+                    value={formatRole(selectedAdmin.roleName)}
+                  />
+                  <DetailBox
+                    label="Company Code"
+                    value={selectedAdmin.companyCode}
+                  />
+                  <DetailBox
+                    label="Company Name"
+                    value={selectedAdmin.companyName}
+                  />
+                  <DetailBox label="Status" value={selectedAdmin.status} />
+                  <DetailBox label="User ID" value={String(selectedAdmin.id)} />
+                  <DetailBox
+                    label="Created At"
+                    value={formatDateTime(selectedAdmin.createdAt)}
+                  />
+                  <DetailBox
+                    label="Updated At"
+                    value={formatDateTime(selectedAdmin.updatedAt)}
+                  />
+                </div>
+
+                <button
+                  onClick={closeModal}
+                  className="mt-5 h-11 w-full rounded-xl bg-blue-600 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+
             {modalType === "delete" && (
               <div>
                 <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-500/20 dark:bg-red-500/10">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">
-                    <Trash2 size={22} />
-                  </div>
-
                   <h4 className="text-base font-semibold text-gray-900 dark:text-white">
                     Delete {selectedAdmin.name}?
                   </h4>
 
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Are you sure you want to delete this user? This user will be
-                    deleted from backend.
+                    Are you sure you want to delete this user?
                   </p>
                 </div>
 

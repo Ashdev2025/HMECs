@@ -115,7 +115,7 @@ export default function SignUpForm() {
       setSuccessMessage("");
 
       const response = await authService.register({
-        name: payload.companyName,
+        company_name: payload.companyName,
         fname: payload.firstName,
         lname: payload.lastName,
         email: payload.email,
@@ -125,7 +125,21 @@ export default function SignUpForm() {
 
       console.log("Signup API Success:", response);
 
-      setSuccessMessage("Account created successfully. Redirecting...");
+      const registerResponse = response as any;
+
+      const token =
+        registerResponse?.token ||
+        registerResponse?.accessToken ||
+        registerResponse?.access_token ||
+        registerResponse?.data?.token ||
+        registerResponse?.data?.accessToken ||
+        registerResponse?.data?.access_token;
+
+      if (token) {
+        localStorage.setItem("token", token);
+      }
+
+      setSuccessMessage("Account created successfully. Redirecting to cart...");
 
       setTimeout(() => {
         navigate(redirectTo, { replace: true });
@@ -145,6 +159,32 @@ export default function SignUpForm() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
+      <style>
+        {`
+          input:-webkit-autofill,
+          input:-webkit-autofill:hover,
+          input:-webkit-autofill:focus,
+          input:-webkit-autofill:active {
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: #0f172a !important;
+            transition: background-color 999999s ease-in-out 0s !important;
+            box-shadow: inset 0 0 0 1000px #ffffff !important;
+            caret-color: #0f172a !important;
+          }
+
+          .dark input:-webkit-autofill,
+          .dark input:-webkit-autofill:hover,
+          .dark input:-webkit-autofill:focus,
+          .dark input:-webkit-autofill:active {
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: #ffffff !important;
+            transition: background-color 999999s ease-in-out 0s !important;
+            box-shadow: inset 0 0 0 1000px #0f172a !important;
+            caret-color: #ffffff !important;
+          }
+        `}
+      </style>
+
       <Navbar active={active} setActive={setActive} />
 
       <main

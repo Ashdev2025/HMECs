@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import Pagination from "../../common/Pagination";
 import UserModal from "./UserModal";
 import UsersFilters from "./UsersFilters";
@@ -35,9 +36,30 @@ const emptyForm: UserFormData = {
   name: "",
   email: "",
   phone: "",
-  role: "Operator",
+  role: "Viewer",
   company: "",
   status: "active",
+};
+
+const roleMap: Record<string, string> = {
+  super_admin: "Super Admin",
+  admin: "Admin",
+  engineer: "Engineer",
+  planner: "Planner",
+  viewer: "Viewer",
+};
+
+const apiRoleMap: Record<string, string> = {
+  "Super Admin": "super_admin",
+  Admin: "admin",
+  Engineer: "engineer",
+  Planner: "planner",
+  Viewer: "viewer",
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error) return error.message;
+  return fallback;
 };
 
 const formatDate = (date?: string) => {
@@ -54,11 +76,20 @@ const formatDate = (date?: string) => {
 };
 
 const formatRole = (role?: string) => {
-  if (!role) return "Operator";
+  if (!role) return "Viewer";
 
-  return role
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  const normalizedRole = role.toLowerCase().trim();
+
+  return (
+    roleMap[normalizedRole] ||
+    normalizedRole
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+  );
+};
+
+const getApiRoleName = (role: string) => {
+  return apiRoleMap[role] || role.toLowerCase().replace(/\s+/g, "_");
 };
 
 const getCompanyName = (user: ApiUser) => {
@@ -87,7 +118,7 @@ const mapApiUserToUser = (user: ApiUser): User => {
   const roleValue =
     user.role_name ||
     (typeof user.role === "object" ? user.role?.name : user.role) ||
-    "Operator";
+    "viewer";
 
   return {
     id: user.id,
@@ -134,13 +165,19 @@ export default function Users() {
 
       const response = await userService.getUsers();
 
-     const usersData = response;
+      const usersData = Array.isArray(response)
+        ? response
+        : Array.isArray((response as { data?: ApiUser[] })?.data)
+          ? (response as { data: ApiUser[] }).data
+          : [];
 
       const mappedUsers = usersData.map(mapApiUserToUser);
 
       setUsers(mappedUsers);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch users");
+      const message = getErrorMessage(err, "Failed to fetch users");
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -158,9 +195,11 @@ export default function Users() {
         user.name.toLowerCase().includes(searchText) ||
         user.email.toLowerCase().includes(searchText) ||
         user.phone.toLowerCase().includes(searchText) ||
-        user.company.toLowerCase().includes(searchText);
+        user.company.toLowerCase().includes(searchText) ||
+        user.role.toLowerCase().includes(searchText);
 
-      const matchesRole = roleFilter === "All Roles" || user.role === roleFilter;
+      const matchesRole =
+        roleFilter === "All Roles" || user.role === roleFilter;
 
       const matchesStatus =
         statusFilter === "All Status" ||
@@ -207,7 +246,7 @@ export default function Users() {
 
       setViewUser(mappedUser);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to fetch user details");
+      toast.error(getErrorMessage(err, "Failed to fetch user details"));
     } finally {
       setViewLoading(false);
     }
@@ -216,14 +255,16 @@ export default function Users() {
   const openEditModal = (user: User) => {
     setModalMode("edit");
     setEditingUserId(user.id);
+
     setFormData({
       name: user.name,
       email: user.email,
       phone: user.phone,
-      role: user.role === "Super Admin" ? "Company Admin" : user.role,
+      role: user.role,
       company: user.company,
       status: user.status,
     });
+
     setIsModalOpen(true);
   };
 
@@ -243,41 +284,42 @@ export default function Users() {
       !formData.phone.trim() ||
       !formData.company.trim()
     ) {
-      alert("Please fill all fields");
+      toast.error("Please fill all fields");
       return;
     }
 
     try {
       setIsSubmitting(true);
 
-      if (modalMode === "edit" && editingUserId !== null) {
-        const nameParts = formData.name.trim().split(" ");
+      const nameParts = formData.name.trim().split(" ");
 
+      if (modalMode === "edit" && editingUserId !== null) {
         await userService.updateUser(editingUserId, {
           first_name: nameParts[0] || formData.name,
           last_name: nameParts.slice(1).join(" ") || "",
           email: formData.email,
           mobile_number: formData.phone,
-          role_name: formData.role,
+          role_name: getApiRoleName(formData.role),
           status: formData.status,
         });
 
         await fetchUsers();
-
         closeModal();
-        alert("User updated successfully");
+        toast.success("User updated successfully");
         return;
       }
 
-      await userService.addUser(formData);
+      await userService.addUser({
+        ...formData,
+        role: getApiRoleName(formData.role),
+      });
 
       await fetchUsers();
-
       setCurrentPage(1);
       closeModal();
-      alert("User created successfully");
+      toast.success("User created successfully");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save user");
+      toast.error(getErrorMessage(err, "Failed to save user"));
     } finally {
       setIsSubmitting(false);
     }
@@ -298,14 +340,12 @@ export default function Users() {
       setIsSubmitting(true);
 
       await userService.deleteUser(deleteUser.id);
-
       await fetchUsers();
 
       setDeleteUser(null);
-
-      alert("User deleted successfully");
+      toast.success("User deleted successfully");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete user");
+      toast.error(getErrorMessage(err, "Failed to delete user"));
     } finally {
       setIsSubmitting(false);
     }
@@ -507,7 +547,6 @@ function ViewUserModal({
             <DetailRow label="Role" value={user.role} />
             <DetailRow label="Company" value={user.company} />
             <DetailRow label="Status" value={user.status} />
-            <DetailRow label="Last Login" value={user.lastLogin} />
             <DetailRow label="Created At" value={user.createdAt} />
             <DetailRow label="User ID" value={user.id} />
           </div>

@@ -9,6 +9,18 @@ import "flatpickr/dist/flatpickr.css";
 
 import App from "./App.tsx";
 import { ThemeProvider } from "./context/ThemeContext.tsx";
+import { registerSW } from "virtual:pwa-register";
+
+const updateSW = registerSW({
+  onNeedRefresh() {
+    if (confirm("New content available. Reload?")) {
+      updateSW(true);
+    }
+  },
+  onOfflineReady() {
+    console.log("Offline ready");
+  },
+});
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

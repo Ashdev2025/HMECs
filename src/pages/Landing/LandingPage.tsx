@@ -206,7 +206,7 @@ export default function LandingPage() {
 
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
-                  to="/pricing"
+                  to="/plans"
                   className="rounded-full bg-white px-5 py-2 text-xs font-bold text-slate-950 shadow-lg transition hover:-translate-y-1 hover:bg-slate-100 sm:text-sm"
                 >
                   See Our Plans
@@ -339,7 +339,7 @@ export default function LandingPage() {
             </div>
 
             <Link
-              to="/pricing"
+              to="/plans"
               className="mt-8 inline-flex rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-700"
             >
               Explore Plans
@@ -574,7 +574,7 @@ export default function LandingPage() {
           </p>
 
           <Link
-            to="/pricing"
+            to="/plans"
             className="mt-8 inline-flex rounded-xl bg-white px-8 py-4 text-sm font-black text-blue-700 shadow-xl hover:bg-blue-50"
           >
             Start Monitoring →

@@ -112,6 +112,8 @@ export default function StaffManagement() {
     const [viewLoading, setViewLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState("");
+    const [subscription, setSubscription] = useState<any>(null);
+    const [subLoading, setSubLoading] = useState(false);
 
     const perPage = 5;
 
@@ -178,9 +180,23 @@ export default function StaffManagement() {
         }
     };
 
+    const fetchSubscription = async () => {
+        try {
+            setSubLoading(true);
+            // We'll add this method to userService or a separate subscriptionService
+            const response = await userService.getActiveSubscription();
+            setSubscription(response);
+        } catch (err) {
+            console.error("Failed to fetch subscription:", err);
+        } finally {
+            setSubLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchRoles();
         fetchStaffUsers();
+        fetchSubscription();
     }, []);
 
     const filteredStaff = useMemo(() => {
@@ -370,13 +386,46 @@ export default function StaffManagement() {
 
                     <button
                         onClick={openAddModal}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700"
+                        disabled={subscription && subscription.staff_limit !== null && staffList.length >= subscription.staff_limit}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed disabled:shadow-none"
+                        title={subscription && subscription.staff_limit !== null && staffList.length >= subscription.staff_limit ? "Staff limit reached. Please upgrade your plan." : ""}
                     >
                         <Plus size={18} />
                         Add Staff
                     </button>
                 </div>
             </div>
+
+            {subscription && subscription.staff_limit !== null && (
+                <div className={`mb-6 flex flex-col gap-4 rounded-2xl border p-5 sm:flex-row sm:items-center sm:justify-between ${
+                    staffList.length >= subscription.staff_limit 
+                    ? "border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-500/5" 
+                    : "border-blue-100 bg-blue-50/50 dark:border-blue-900/30 dark:bg-blue-500/5"
+                }`}>
+                    <div className="flex items-center gap-4">
+                        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+                            staffList.length >= subscription.staff_limit ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
+                        }`}>
+                            <CheckCircle2 size={24} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold">Staff Limit Monitoring</h3>
+                            <p className="text-sm text-slate-500">
+                                You have used <span className="font-bold text-slate-900 dark:text-white">{staffList.length}</span> of <span className="font-bold text-slate-900 dark:text-white">{subscription.staff_limit}</span> slots available in your <span className="font-bold text-blue-600 uppercase">{subscription.plan_name}</span> plan.
+                            </p>
+                        </div>
+                    </div>
+
+                    {staffList.length >= subscription.staff_limit && (
+                        <a 
+                            href="/plans" 
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-600/20 hover:bg-red-700 transition"
+                        >
+                            Upgrade Now
+                        </a>
+                    )}
+                </div>
+            )}
 
             <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="grid gap-4 md:grid-cols-2">

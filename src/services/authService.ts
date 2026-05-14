@@ -1,7 +1,7 @@
 import { apiRequest } from "./api";
 
 export type RegisterPayload = {
-  name: string;
+  company_name: string;
   fname: string;
   lname: string;
   email: string;

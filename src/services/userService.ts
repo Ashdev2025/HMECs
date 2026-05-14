@@ -44,6 +44,7 @@ export type UpdateUserPayload = {
   role_name?: string;
   role_id?: number;
   company_id?: string | number;
+  company_name?: string;
   status?: string;
   is_active?: boolean;
 };
@@ -119,9 +120,14 @@ const normalizeUsersResponse = (
 
 export const userService = {
   getRoles: async (): Promise<ApiRole[]> => {
-    return apiRequest<ApiRole[]>("/auth/roles", {
+    const response = await apiRequest<
+      { data?: ApiRole[]; roles?: ApiRole[] } | ApiRole[]
+    >("/auth/roles", {
       method: "GET",
     });
+
+    if (Array.isArray(response)) return response;
+    return response.data || response.roles || [];
   },
 
   getUsers: async (): Promise<ApiUser[]> => {
@@ -188,6 +194,33 @@ export const userService = {
   deleteUser: (id: string | number) => {
     return apiRequest(`/auth/users/${id}`, {
       method: "DELETE",
+    });
+  },
+  
+  getActiveSubscription: async (): Promise<any> => {
+    return apiRequest<any>("/plans/active", {
+      method: "GET",
+    });
+  },
+
+  getSubscriptionHistory: async (): Promise<any[]> => {
+    const response = await apiRequest<any[]>("/plans/subscriptions", {
+      method: "GET",
+    });
+    return Array.isArray(response) ? response : [];
+  },
+  
+  getMachines: async (): Promise<any[]> => {
+    const response = await apiRequest<any[]>("/machines", {
+      method: "GET",
+    });
+    return Array.isArray(response) ? response : [];
+  },
+
+  registerMachine: async (machineData: any): Promise<any> => {
+    return apiRequest<any>("/machines", {
+      method: "POST",
+      body: JSON.stringify(machineData),
     });
   },
 };

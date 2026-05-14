@@ -1,127 +1,182 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eye, Pencil, Search, Trash2, X } from "lucide-react";
-import { getRoles } from "../../../services/roleService";
+import {
+  Eye,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  UserCheck,
+  X,
+} from "lucide-react";
+import toast, { Toaster } from "react-hot-toast";
+
+import {
+  ApiRole,
+  createRole as createRoleApi,
+  deleteRole as deleteRoleApi,
+  getRoles,
+  updateRole as updateRoleApi,
+} from "../../../services/roleService";
+
+import { userService } from "../../../services/userService";
 
 type RoleStatus = "active" | "inactive";
 
 type Role = {
-  id: number;
+  id: number | string;
   name: string;
   rawName: string;
-  description: string;
-  users: number;
-  permissions: number;
   status: RoleStatus;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-type PurchasedUser = {
-  id: number;
+type ApiUser = {
+  id: number | string;
+  first_name?: string;
+  last_name?: string;
+  fname?: string;
+  lname?: string;
+  name?: string;
+  email?: string;
+  mobile?: string;
+  mobile_number?: string;
+  phone?: string;
+  role_name?: string;
+  role?: string | { name?: string };
+  company_name?: string;
+  company?: string | { name?: string };
+};
+
+type UserRow = {
+  id: number | string;
   name: string;
   email: string;
   phone: string;
-  plan: string;
-  assignedRole: string;
+  role: string;
+  company: string;
 };
 
 type FormState = {
   name: string;
-  description: string;
-  users: string;
-  permissions: string;
-  status: RoleStatus;
 };
-
-const purchasedUsersData: PurchasedUser[] = [
-  {
-    id: 1,
-    name: "Thabo Mbeki",
-    email: "thabo.mbeki@example.com",
-    phone: "+27 82 123 4567",
-    plan: "Premium Plan",
-    assignedRole: "Operator",
-  },
-  {
-    id: 2,
-    name: "Sipho Dlamini",
-    email: "sipho.dlamini@example.com",
-    phone: "+27 83 234 5678",
-    plan: "Enterprise Plan",
-    assignedRole: "Company Admin",
-  },
-  {
-    id: 3,
-    name: "Lerato Khumalo",
-    email: "lerato.khumalo@example.com",
-    phone: "+27 84 345 6789",
-    plan: "Basic Plan",
-    assignedRole: "Mechanic",
-  },
-  {
-    id: 4,
-    name: "Zanele Nkosi",
-    email: "zanele.nkosi@example.com",
-    phone: "+27 85 456 7890",
-    plan: "Premium Plan",
-    assignedRole: "Operator",
-  },
-  {
-    id: 5,
-    name: "Kagiso Molefe",
-    email: "kagiso.molefe@example.com",
-    phone: "+27 86 567 8901",
-    plan: "Enterprise Plan",
-    assignedRole: "Super Admin",
-  },
-];
 
 const emptyForm: FormState = {
   name: "",
-  description: "",
-  users: "",
-  permissions: "",
-  status: "active",
 };
 
 const formatRoleName = (name: string) =>
   name
-    .split("_")
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 
-const getRoleDescription = (name: string) => {
-  const descriptions: Record<string, string> = {
-    super_admin: "Full access to all features and system settings",
-    admin: "Manage company assets, users and data",
-    engineer: "View machines and technical data",
-    planner: "Manage maintenance planning",
-    viewer: "View only access",
-  };
+const normalizeRoleName = (name: string) =>
+  name.toLowerCase().replace(/\s+/g, "_").trim();
 
-  return descriptions[name] || "Role access control";
+const formatDate = (date?: string) => {
+  if (!date) return "—";
+
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) return "—";
+
+  return parsedDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
-const getRolePermissions = (name: string) => {
-  const permissions: Record<string, number> = {
-    super_admin: 20,
-    admin: 18,
-    engineer: 14,
-    planner: 13,
-    viewer: 8,
-  };
+const normalizeRolesResponse = (response: any): ApiRole[] => {
+  if (Array.isArray(response)) return response;
 
-  return permissions[name] || 0;
+  if (Array.isArray(response?.roles)) {
+    return response.roles;
+  }
+
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
+  if (Array.isArray(response?.data?.roles)) {
+    return response.data.roles;
+  }
+
+  return [];
 };
+
+const normalizeUsersResponse = (response: any): ApiUser[] => {
+  if (Array.isArray(response)) return response;
+
+  if (Array.isArray(response?.users)) {
+    return response.users;
+  }
+
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
+  if (Array.isArray(response?.data?.users)) {
+    return response.data.users;
+  }
+
+  return [];
+};
+
+const getUserName = (user: ApiUser) => {
+  const firstName = user.first_name || user.fname || "";
+  const lastName = user.last_name || user.lname || "";
+
+  return user.name || `${firstName} ${lastName}`.trim() || "Unknown User";
+};
+
+const getUserRole = (user: ApiUser) => {
+  const roleValue =
+    user.role_name ||
+    (typeof user.role === "object" ? user.role?.name : user.role) ||
+    "viewer";
+
+  return formatRoleName(roleValue);
+};
+
+const getCompanyName = (user: ApiUser) => {
+  if (typeof user.company === "object") {
+    return user.company?.name || "—";
+  }
+
+  return user.company_name || user.company || "—";
+};
+
+const mapApiUserToRow = (user: ApiUser): UserRow => ({
+  id: user.id,
+  name: getUserName(user),
+  email: user.email || "—",
+  phone: user.mobile_number || user.mobile || user.phone || "—",
+  role: getUserRole(user),
+  company: getCompanyName(user),
+});
 
 export default function Roles() {
   const [roles, setRoles] = useState<Role[]>([]);
-  const [purchasedUsers, setPurchasedUsers] =
-    useState<PurchasedUser[]>(purchasedUsersData);
-
   const [search, setSearch] = useState("");
+
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  const [viewRole, setViewRole] = useState<Role | null>(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const [assignRole, setAssignRole] = useState<Role | null>(null);
   const [deleteRole, setDeleteRole] = useState<Role | null>(null);
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [roleUsers, setRoleUsers] = useState<UserRow[]>([]);
+
   const [form, setForm] = useState<FormState>(emptyForm);
 
   useEffect(() => {
@@ -132,25 +187,26 @@ export default function Roles() {
     try {
       setLoading(true);
 
-      const data = await getRoles();
+      const response = await getRoles();
+
+      const data = normalizeRolesResponse(response);
 
       const mappedRoles: Role[] = data.map((role) => {
-        const formattedName = formatRoleName(role.name);
+        const rawName = String(role.name || "");
 
         return {
           id: role.id,
-          rawName: role.name,
-          name: formattedName,
-          description: getRoleDescription(role.name),
-          users: 0,
-          permissions: getRolePermissions(role.name),
-          status: "active",
+          rawName,
+          name: formatRoleName(rawName),
+          status: role.status === "inactive" ? "inactive" : "active",
+          createdAt: formatDate((role as any).created_at),
+          updatedAt: formatDate((role as any).updated_at),
         };
       });
 
       setRoles(mappedRoles);
-    } catch (error) {
-      console.error("Error fetching roles:", error);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to fetch roles");
     } finally {
       setLoading(false);
     }
@@ -159,107 +215,179 @@ export default function Roles() {
   const filteredRoles = useMemo(() => {
     const value = search.trim().toLowerCase();
 
+    if (!value) return roles;
+
     return roles.filter(
       (role) =>
         role.name.toLowerCase().includes(value) ||
         role.rawName.toLowerCase().includes(value) ||
-        role.description.toLowerCase().includes(value) ||
-        role.status.toLowerCase().includes(value)
+        role.status.toLowerCase().includes(value),
     );
   }, [roles, search]);
 
-  const totalUsers = purchasedUsers.length;
-  const totalPermissions = roles.reduce(
-    (sum, role) => sum + role.permissions,
-    0
-  );
   const activeRoles = roles.filter((role) => role.status === "active").length;
 
-  const getAssignedUserCount = (roleName: string) => {
-    return purchasedUsers.filter((user) => user.assignedRole === roleName)
-      .length;
+  const openAddModal = () => {
+    setForm(emptyForm);
+    setIsAddModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    if (actionLoading) return;
+
+    setIsAddModalOpen(false);
+    setForm(emptyForm);
   };
 
   const openEditModal = (role: Role) => {
     setEditingRole(role);
+
     setForm({
       name: role.name,
-      description: role.description,
-      users: String(getAssignedUserCount(role.name)),
-      permissions: String(role.permissions),
-      status: role.status,
     });
   };
 
-  const closeFormModal = () => {
+  const closeEditModal = () => {
+    if (actionLoading) return;
+
     setEditingRole(null);
     setForm(emptyForm);
   };
 
-  const handleSubmit = () => {
+  const handleCreateRole = async () => {
+    if (!form.name.trim()) {
+      toast.error("Please enter role name");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+
+      await createRoleApi({
+        name: normalizeRoleName(form.name),
+      });
+
+      toast.success("Role created successfully");
+
+      closeAddModal();
+
+      await fetchRoles();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to create role");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateRole = async () => {
     if (!editingRole) return;
 
-    if (!form.name.trim() || !form.description.trim()) {
-      alert("Please fill role name and description.");
+    if (!form.name.trim()) {
+      toast.error("Please enter role name");
       return;
     }
 
-    const permissionsValue = Number(form.permissions || 0);
+    try {
+      setActionLoading(true);
 
-    if (permissionsValue < 0) {
-      alert("Permissions cannot be negative.");
-      return;
+      await updateRoleApi(editingRole.id, {
+        name: normalizeRoleName(form.name),
+      });
+
+      toast.success("Role updated successfully");
+
+      closeEditModal();
+
+      await fetchRoles();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update role");
+    } finally {
+      setActionLoading(false);
     }
-
-    setRoles((prev) =>
-      prev.map((role) =>
-        role.id === editingRole.id
-          ? {
-              ...role,
-              name: form.name.trim(),
-              description: form.description.trim(),
-              permissions: permissionsValue,
-              status: form.status,
-            }
-          : role
-      )
-    );
-
-    closeFormModal();
   };
 
-  const handleAssignUser = (userId: number, roleName: string) => {
-    setPurchasedUsers((prev) =>
-      prev.map((user) =>
-        user.id === userId ? { ...user, assignedRole: roleName } : user
-      )
-    );
-
-    setAssignRole(null);
-  };
-
-  const handleDelete = () => {
+  const handleDeleteRole = async () => {
     if (!deleteRole) return;
 
-    setRoles((prev) => prev.filter((role) => role.id !== deleteRole.id));
-    setDeleteRole(null);
+    try {
+      setActionLoading(true);
+
+      await deleteRoleApi(deleteRole.id);
+
+      toast.success("Role deleted successfully");
+
+      setDeleteRole(null);
+
+      await fetchRoles();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete role");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openRoleUsersModal = async (role: Role) => {
+    try {
+      setSelectedRole(role);
+      setUsersLoading(true);
+
+      const response = await userService.getUsers();
+
+      const usersData = normalizeUsersResponse(response);
+
+      setRoleUsers(usersData.map(mapApiUserToRow));
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to fetch users");
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const handleAssignRole = async (userId: number | string) => {
+    if (!selectedRole) return;
+
+    try {
+      setActionLoading(true);
+
+      await userService.updateUser(userId, {
+        role_name: selectedRole.rawName,
+      } as any);
+
+      toast.success(`${selectedRole.name} role assigned successfully`);
+
+      setSelectedRole(null);
+      setRoleUsers([]);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to assign role");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+        }}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Role Management
           </h1>
+
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Manage role assignment for plan purchased users
+            Manage system roles and access
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
           <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-[#0f172a]">
             <Search size={16} className="text-gray-400" />
+
             <input
               placeholder="Search roles..."
               className="bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
@@ -267,14 +395,37 @@ export default function Roles() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+
+          <button
+            onClick={fetchRoles}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60 dark:border-gray-700 dark:bg-[#0f172a] dark:text-white dark:hover:bg-white/10"
+            type="button"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            type="button"
+          >
+            <Plus size={16} />
+            Add Role
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard title="Total Roles" value={String(roles.length)} />
+
         <StatCard title="Active Roles" value={String(activeRoles)} />
-        <StatCard title="Plan Users" value={String(totalUsers)} />
-        <StatCard title="Permissions" value={String(totalPermissions)} />
+
+        <StatCard
+          title="Inactive Roles"
+          value={String(roles.length - activeRoles)}
+        />
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-[#0f172a]">
@@ -284,19 +435,18 @@ export default function Roles() {
           </h2>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Showing {filteredRoles.length} of {roles.length} roles
+            Showing {filteredRoles.length} roles
           </p>
         </div>
 
         <div className="overflow-x-auto scrollbar-hide">
-          <table className="w-full min-w-[850px] text-left text-sm">
+          <table className="w-full min-w-[700px] text-left text-sm">
             <thead className="border-b border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400">
               <tr>
                 <th className="py-3">Role Name</th>
-                <th>Description</th>
-                <th>Users</th>
-                <th>Permissions</th>
                 <th>Status</th>
+                <th>Created At</th>
+                <th>Updated At</th>
                 <th className="text-center">Actions</th>
               </tr>
             </thead>
@@ -305,7 +455,7 @@ export default function Roles() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={5}
                     className="py-10 text-center text-gray-500 dark:text-gray-400"
                   >
                     Loading roles...
@@ -315,23 +465,11 @@ export default function Roles() {
                 filteredRoles.map((role) => (
                   <tr
                     key={role.id}
-                    onClick={() => setAssignRole(role)}
+                    onClick={() => openRoleUsersModal(role)}
                     className="cursor-pointer border-b border-gray-100 transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5"
                   >
                     <td className="py-3 font-medium text-gray-900 dark:text-white">
                       {role.name}
-                    </td>
-
-                    <td className="max-w-[360px] text-gray-500 dark:text-gray-400">
-                      {role.description}
-                    </td>
-
-                    <td className="text-gray-900 dark:text-white">
-                      {getAssignedUserCount(role.name)}
-                    </td>
-
-                    <td className="text-gray-900 dark:text-white">
-                      {role.permissions}
                     </td>
 
                     <td>
@@ -346,12 +484,20 @@ export default function Roles() {
                       </span>
                     </td>
 
+                    <td className="text-gray-500 dark:text-gray-400">
+                      {role.createdAt}
+                    </td>
+
+                    <td className="text-gray-500 dark:text-gray-400">
+                      {role.updatedAt}
+                    </td>
+
                     <td onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-center gap-3 py-3">
+                      <div className="flex justify-center gap-2 py-3">
                         <button
-                          onClick={() => setAssignRole(role)}
+                          onClick={() => setViewRole(role)}
                           className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-white/10 dark:hover:text-white"
-                          title="View Users"
+                          type="button"
                         >
                           <Eye size={16} />
                         </button>
@@ -359,7 +505,7 @@ export default function Roles() {
                         <button
                           onClick={() => openEditModal(role)}
                           className="rounded-lg p-2 text-blue-500 transition hover:bg-blue-500/10"
-                          title="Edit"
+                          type="button"
                         >
                           <Pencil size={16} />
                         </button>
@@ -367,9 +513,17 @@ export default function Roles() {
                         <button
                           onClick={() => setDeleteRole(role)}
                           className="rounded-lg p-2 text-red-500 transition hover:bg-red-500/10"
-                          title="Delete"
+                          type="button"
                         >
                           <Trash2 size={16} />
+                        </button>
+
+                        <button
+                          onClick={() => openRoleUsersModal(role)}
+                          className="rounded-lg p-2 text-green-500 transition hover:bg-green-500/10"
+                          type="button"
+                        >
+                          <UserCheck size={16} />
                         </button>
                       </div>
                     </td>
@@ -378,10 +532,10 @@ export default function Roles() {
               ) : (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={5}
                     className="py-10 text-center text-gray-500 dark:text-gray-400"
                   >
-                    No roles found.
+                    No roles found
                   </td>
                 </tr>
               )}
@@ -390,23 +544,45 @@ export default function Roles() {
         </div>
       </div>
 
+      {isAddModalOpen && (
+        <RoleFormModal
+          title="Add Role"
+          form={form}
+          setForm={setForm}
+          onClose={closeAddModal}
+          onSubmit={handleCreateRole}
+          submitText={actionLoading ? "Creating..." : "Create Role"}
+          disabled={actionLoading}
+        />
+      )}
+
       {editingRole && (
         <RoleFormModal
           title="Edit Role"
           form={form}
           setForm={setForm}
-          onClose={closeFormModal}
-          onSubmit={handleSubmit}
-          submitText="Update Role"
+          onClose={closeEditModal}
+          onSubmit={handleUpdateRole}
+          submitText={actionLoading ? "Updating..." : "Update Role"}
+          disabled={actionLoading}
         />
       )}
 
-      {assignRole && (
-        <AssignUserRoleModal
-          role={assignRole}
-          users={purchasedUsers}
-          onClose={() => setAssignRole(null)}
-          onAssign={handleAssignUser}
+      {viewRole && (
+        <ViewRoleModal role={viewRole} onClose={() => setViewRole(null)} />
+      )}
+
+      {selectedRole && (
+        <RoleUsersModal
+          role={selectedRole}
+          users={roleUsers}
+          loading={usersLoading}
+          assigning={actionLoading}
+          onClose={() => {
+            setSelectedRole(null);
+            setRoleUsers([]);
+          }}
+          onAssign={handleAssignRole}
         />
       )}
 
@@ -414,177 +590,10 @@ export default function Roles() {
         <DeleteConfirmModal
           role={deleteRole}
           onClose={() => setDeleteRole(null)}
-          onDelete={handleDelete}
+          onDelete={handleDeleteRole}
+          disabled={actionLoading}
         />
       )}
-    </div>
-  );
-}
-
-function AssignUserRoleModal({
-  role,
-  users,
-  onClose,
-  onAssign,
-}: {
-  role: Role;
-  users: PurchasedUser[];
-  onClose: () => void;
-  onAssign: (userId: number, roleName: string) => void;
-}) {
-  const [userSearch, setUserSearch] = useState("");
-
-  const filteredUsers = users.filter((user) => {
-    const value = userSearch.trim().toLowerCase();
-
-    return (
-      user.name.toLowerCase().includes(value) ||
-      user.email.toLowerCase().includes(value) ||
-      user.phone.toLowerCase().includes(value) ||
-      user.plan.toLowerCase().includes(value) ||
-      user.assignedRole.toLowerCase().includes(value)
-    );
-  });
-
-  return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-[#0f172a]">
-        <div className="border-b border-gray-200 p-5 dark:border-gray-800">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Assign User as {role.name}
-              </h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Select any plan purchased user to assign this role
-              </p>
-            </div>
-
-            <button
-              onClick={onClose}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          <div className="mt-4 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-700">
-            <Search size={16} className="text-gray-400" />
-            <input
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              placeholder="Search user by name, email, phone, plan or role..."
-              className="w-full bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:text-white"
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-5 scrollbar-hide">
-          <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-white/5 dark:text-gray-400">
-                <tr>
-                  <th className="px-4 py-3">User Name</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Phone</th>
-                  <th className="px-4 py-3">Plan</th>
-                  <th className="px-4 py-3">Current Role</th>
-                  <th className="px-4 py-3 text-center">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => {
-                    const isSelected = user.assignedRole === role.name;
-
-                    return (
-                      <tr
-                        key={user.id}
-                        onClick={() => onAssign(user.id, role.name)}
-                        className={`cursor-pointer border-t border-gray-100 transition dark:border-gray-800 ${
-                          isSelected
-                            ? "bg-blue-50 dark:bg-blue-500/10"
-                            : "hover:bg-gray-50 dark:hover:bg-white/5"
-                        }`}
-                      >
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900 dark:text-white">
-                          {user.name}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-500 dark:text-gray-400">
-                          {user.email}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-500 dark:text-gray-400">
-                          {user.phone}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3 text-gray-500 dark:text-gray-400">
-                          {user.plan}
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
-                            {user.assignedRole}
-                          </span>
-                        </td>
-
-                        <td className="whitespace-nowrap px-4 py-3 text-center">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onAssign(user.id, role.name);
-                            }}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                              isSelected
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-blue-600 hover:text-white dark:bg-white/10 dark:text-gray-300"
-                            }`}
-                          >
-                            {isSelected ? "Assigned" : "Assign"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-10 text-center text-gray-500 dark:text-gray-400"
-                    >
-                      No purchased users found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200 p-4 text-right dark:border-gray-800">
-          <button
-            onClick={onClose}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-[#0f172a] sm:rounded-2xl sm:p-4">
-      <p className="truncate text-[11px] text-gray-500 dark:text-gray-400 sm:text-sm">
-        {title}
-      </p>
-      <h3 className="mt-1 text-lg font-bold text-gray-900 dark:text-white sm:text-xl">
-        {value}
-      </h3>
     </div>
   );
 }
@@ -596,17 +605,11 @@ function RoleFormModal({
   onClose,
   onSubmit,
   submitText,
-}: {
-  title: string;
-  form: FormState;
-  setForm: React.Dispatch<React.SetStateAction<FormState>>;
-  onClose: () => void;
-  onSubmit: () => void;
-  submitText: string;
-}) {
+  disabled,
+}: any) {
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-[#0f172a]">
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-[#0f172a]">
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
             {title}
@@ -614,79 +617,36 @@ function RoleFormModal({
 
           <button
             onClick={onClose}
+            disabled={disabled}
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10"
+            type="button"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="space-y-4">
-          <InputField
-            label="Role Name"
-            value={form.name}
-            placeholder="Enter role name"
-            onChange={(value) => setForm((prev) => ({ ...prev, name: value }))}
-          />
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Description
-            </label>
-            <textarea
-              rows={3}
-              value={form.description}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              placeholder="Enter role description"
-              className="w-full rounded-xl border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 dark:border-gray-700 dark:text-white"
-            />
-          </div>
-
-          <InputField
-            label="Permissions"
-            type="number"
-            value={form.permissions}
-            placeholder="0"
-            onChange={(value) =>
-              setForm((prev) => ({ ...prev, permissions: value }))
-            }
-          />
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Status
-            </label>
-            <select
-              value={form.status}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  status: e.target.value as RoleStatus,
-                }))
-              }
-              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-[#0f172a] dark:text-white"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
+        <InputField
+          label="Role Name"
+          value={form.name}
+          placeholder="admin / engineer / planner / viewer"
+          onChange={(value: string) => setForm({ name: value })}
+        />
 
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
+            disabled={disabled}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-white dark:hover:bg-white/10"
+            type="button"
           >
             Cancel
           </button>
 
           <button
             onClick={onSubmit}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            disabled={disabled}
+            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            type="button"
           >
             {submitText}
           </button>
@@ -696,15 +656,151 @@ function RoleFormModal({
   );
 }
 
-function DeleteConfirmModal({
+function ViewRoleModal({ role, onClose }: any) {
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-[#0f172a]">
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Role Details
+          </h3>
+
+          <button
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10"
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <DetailRow label="Role ID" value={role.id} />
+          <DetailRow label="Role Name" value={role.name} />
+          <DetailRow label="Status" value={role.status} />
+          <DetailRow label="Created At" value={role.createdAt} />
+          <DetailRow label="Updated At" value={role.updatedAt} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoleUsersModal({
   role,
+  users,
+  loading,
+  assigning,
   onClose,
-  onDelete,
-}: {
-  role: Role;
-  onClose: () => void;
-  onDelete: () => void;
-}) {
+  onAssign,
+}: any) {
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-[#0f172a]">
+        <div className="border-b border-gray-200 p-5 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Assign {role.name}
+              </h3>
+
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Click any user to assign role
+              </p>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10"
+              type="button"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[850px] text-left text-sm">
+              <thead className="border-b border-gray-200 text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Phone</th>
+                  <th className="px-4 py-3">Company</th>
+                  <th className="px-4 py-3">Current Role</th>
+                  <th className="px-4 py-3 text-center">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="py-10 text-center text-gray-500 dark:text-gray-400"
+                    >
+                      Loading users...
+                    </td>
+                  </tr>
+                ) : users.length > 0 ? (
+                  users.map((user: any) => (
+                    <tr
+                      key={user.id}
+                      className="border-b border-gray-100 dark:border-gray-800"
+                    >
+                      <td className="px-4 py-3 text-gray-900 dark:text-white">
+                        {user.name}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                        {user.email}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                        {user.phone}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                        {user.company}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                        {user.role}
+                      </td>
+
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => onAssign(user.id)}
+                          disabled={assigning}
+                          className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                          type="button"
+                        >
+                          {assigning ? "Assigning..." : "Assign"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="py-10 text-center text-gray-500 dark:text-gray-400"
+                    >
+                      No users found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({ role, onClose, onDelete, disabled }: any) {
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-[#0f172a]">
@@ -723,16 +819,20 @@ function DeleteConfirmModal({
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
+            disabled={disabled}
             className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-white dark:hover:bg-white/10"
+            type="button"
           >
             Cancel
           </button>
 
           <button
             onClick={onDelete}
-            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            disabled={disabled}
+            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+            type="button"
           >
-            Delete
+            {disabled ? "Deleting..." : "Delete"}
           </button>
         </div>
       </div>
@@ -740,19 +840,31 @@ function DeleteConfirmModal({
   );
 }
 
-function InputField({
-  label,
-  value,
-  placeholder,
-  type = "text",
-  onChange,
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  type?: string;
-  onChange: (value: string) => void;
-}) {
+function StatCard({ title, value }: any) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-[#0f172a]">
+      <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+
+      <h3 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">
+        {value}
+      </h3>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: any) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-white/5">
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+
+      <p className="mt-1 font-semibold text-gray-900 dark:text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function InputField({ label, value, placeholder, onChange }: any) {
   return (
     <div>
       <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -760,7 +872,7 @@ function InputField({
       </label>
 
       <input
-        type={type}
+        type="text"
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}

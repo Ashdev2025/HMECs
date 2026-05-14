@@ -4,6 +4,8 @@ import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
 
+import { Toaster } from "react-hot-toast";
+
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
 import Images from "./pages/UiElements/Images";
@@ -21,6 +23,7 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 
 import Home from "./pages/SuperAdmin/SuperAdminDashboard";
+import FleetIntelligence from "./pages/SuperAdmin/CompanyIntelligence";
 import LandingPage from "./pages/Landing/LandingPage";
 import PricingPage from "./pages/pricing/PricingPage";
 import CartPage from "./pages/Cart/CartPage";
@@ -31,10 +34,21 @@ import RolesPage from "./pages/SuperAdmin/user-management/RolesPage";
 import RoleDetailsPage from "./components/super-admin/dashboard/RoleDetails";
 
 import CompanyAdminDashboard from "./pages/CompanyAdmin/CompanyAdminDashboard";
+import ComponentRegister from "./pages/CompanyAdmin/ComponentRegister";
+import MaintenanceLog from "./pages/CompanyAdmin/MaintenanceLog";
+import FleetHeatMap from "./pages/CompanyAdmin/FleetHeatMap";
+import AddComponent from "./pages/CompanyAdmin/AddComponent";
 
 import AccessDenied from "./pages/AccessDenied";
 import RoleProtectedRoute from "./routes/RoleProtectedRoute";
 import StaffManagement from "./pages/CompanyAdmin/StaffManagement";
+import MachineManagement from "./pages/CompanyAdmin/MachineManagement";
+import AlertsPage from "./pages/CompanyAdmin/AlertsPage";
+import ComingSoon from "./pages/ComingSoon";
+import SubscriptionHistory from "./pages/CompanyAdmin/SubscriptionHistory";
+
+import SuperAdminLogin from "./pages/AuthPages/SuperAdminLogin";
+import CompanyAdminsPage from "./pages/SuperAdmin/CompanyAdminsPage";
 
 export default function App() {
   return (
@@ -43,23 +57,15 @@ export default function App() {
 
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/plans" element={<PricingPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
+        <Route path="/super-admin/login" element={<SuperAdminLogin />} />
         <Route path="/access-denied" element={<AccessDenied />} />
+
         <Route
-          element={
-            <RoleProtectedRoute
-              allowedRoles={[
-                "super_admin",
-                "system_admin",
-                "superadmin",
-                "Super Admin",
-                "System Admin",
-              ]}
-            />
-          }
+      
         >
           <Route element={<AppLayout role="super_admin" />}>
             <Route
@@ -68,13 +74,21 @@ export default function App() {
             />
 
             <Route path="/super-admin/dashboard" element={<Home />} />
+            <Route path="/super-admin/intelligence" element={<FleetIntelligence />} />
             <Route path="/admin-management/users" element={<UsersPage />} />
             <Route path="/admin-management/roles" element={<RolesPage />} />
             <Route
               path="/admin-management/roles/:roleId"
               element={<RoleDetailsPage />}
             />
-            <Route path="/admin-management/plans" element={<PlanManagement />} />
+            <Route
+              path="/admin-management/plans"
+              element={<PlanManagement />}
+            />
+            <Route
+              path="/company-admins"
+              element={<CompanyAdminsPage />}
+            />
 
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/blank" element={<Blank />} />
@@ -88,26 +102,41 @@ export default function App() {
             <Route path="/videos" element={<Videos />} />
             <Route path="/line-chart" element={<LineChart />} />
             <Route path="/bar-chart" element={<BarChart />} />
-  
           </Route>
         </Route>
 
-       
         <Route
-          element={
-            <RoleProtectedRoute
-              allowedRoles={["company_admin", "admin", "Company Admin", "Admin"]}
-            />
-          }
+         
         >
           <Route element={<AppLayout role="company_admin" />}>
-            <Route path="/company-admin/dashboard" element={<CompanyAdminDashboard />}/>
+            <Route
+              path="/company-admin/dashboard"
+              element={<CompanyAdminDashboard />}
+            />
+            <Route path="/company-admin/register" element={<ComponentRegister />} />
+            <Route path="/company-admin/maintenance" element={<MaintenanceLog />} />
+            <Route path="/company-admin/heatmap" element={<FleetHeatMap />} />
+            <Route path="/company-admin/add-component" element={<AddComponent />} />
+            <Route path="/company-admin/alerts" element={<AlertsPage />} />
             <Route path="/company-admin/staff" element={<StaffManagement />} />
+            <Route path="/company-admin/machines" element={<MachineManagement />} />
+            <Route path="/company-admin/subscriptions" element={<SubscriptionHistory />} />
           </Route>
         </Route>
 
+        <Route path="/company-admin/coming-soon/:module" element={<ComingSoon />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            zIndex: 999999,
+          },
+        }}
+      />
     </Router>
   );
 }

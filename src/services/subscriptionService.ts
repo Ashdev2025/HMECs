@@ -26,16 +26,16 @@ export type UpdateSubscriptionPlanPayload = {
 
 // GET ALL PLANS API
 export const getSubscriptionPlans = async () => {
-  return apiRequest<SubscriptionPlanApi[]>("/api/auth/subscriptions/plans", {
+  return apiRequest<SubscriptionPlanApi[]>("/auth/plans/plans", {
     method: "GET",
   });
 };
 
 // CREATE PLAN API
 export const createSubscriptionPlan = async (
-  payload: CreateSubscriptionPlanPayload,
+  payload: CreateSubscriptionPlanPayload
 ) => {
-  return apiRequest<SubscriptionPlanApi>("/api/auth/subscriptions/plans", {
+  return apiRequest<SubscriptionPlanApi>("/auth/plans/plans", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -44,25 +44,17 @@ export const createSubscriptionPlan = async (
 // UPDATE PLAN API
 export const updateSubscriptionPlan = async (
   id: number | string,
-  payload: UpdateSubscriptionPlanPayload,
+  payload: UpdateSubscriptionPlanPayload
 ) => {
-  return apiRequest<SubscriptionPlanApi>(
-    `/api/auth/subscriptions/plans/${id}`,
-    {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    },
-  );
+  return apiRequest<SubscriptionPlanApi>(`/auth/plans/plans/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 };
 
 // DELETE PLAN API
-// Example:
-// DELETE http://127.0.0.1:4000/api/auth/subscriptions/plans/2
 export const deleteSubscriptionPlan = async (id: number | string) => {
-  return apiRequest<{ message?: string }>(
-    `/api/auth/subscriptions/plans/${id}`,
-    {
-      method: "DELETE",
-    },
-  );
+  return apiRequest<{ message?: string }>(`/auth/plans/plans/${id}`, {
+    method: "DELETE",
+  });
 };
